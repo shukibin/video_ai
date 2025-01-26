@@ -1,94 +1,94 @@
-const videoElement = document.getElementById('video');
+const video = document.getElementById('video');
 const cameraSelect = document.getElementById('camera-select');
 const chatLog = document.getElementById('chat-log');
 const userInput = document.getElementById('user-input');
-const sendBtn = document.getElementById('send-btn');
-const clearChatBtn = document.getElementById('clear-chat');
+const sendPrompt = document.getElementById('send-prompt');
+const clearChat = document.getElementById('clear-chat');
 
-// Handle camera access
-async function initializeCamera() {
-  try {
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const videoDevices = devices.filter(device => device.kind === 'videoinput');
-    if (videoDevices.length === 0) throw new Error('No camera available');
+// Start video feed
+let currentStream;
 
-    videoDevices.forEach((device, index) => {
-      const option = document.createElement('option');
-      option.value = device.deviceId;
-      option.text = device.label || `Camera ${index + 1}`;
-      cameraSelect.appendChild(option);
-    });
-
-    cameraSelect.addEventListener('change', () => {
-      startCamera(cameraSelect.value);
-    });
-
-    startCamera(videoDevices[0].deviceId);
-  } catch (error) {
-    alert('Camera feed unavailable. Please grant permissions and refresh the page.');
-  }
+async function getCameras() {
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        cameraSelect.innerHTML = '';
+        videoDevices.forEach((device, index) => {
+            const option = document.createElement('option');
+            option.value = device.deviceId;
+            option.textContent = device.label || `Camera ${index + 1}`;
+            cameraSelect.appendChild(option);
+        });
+    } catch (error) {
+        alert('Error accessing cameras: ' + error.message);
+    }
 }
 
 async function startCamera(deviceId) {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { deviceId: { exact: deviceId } }
-  });
-  videoElement.srcObject = stream;
+    if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+    }
+
+    try {
+        const constraints = {
+            video: { deviceId: deviceId ? { exact: deviceId } : undefined }
+        };
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = stream;
+        currentStream = stream;
+    } catch (error) {
+        alert('Error starting video feed: ' + error.message);
+    }
 }
 
-// Chat functionality
-sendBtn.addEventListener('click', async () => {
-  const prompt = userInput.value;
-  if (!prompt) return;
-
-  // Capture snapshot
-  const canvas = document.createElement('canvas');
-  canvas.width = videoElement.videoWidth;
-  canvas.height = videoElement.videoHeight;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-  const snapshot = canvas.toDataURL('image/png');
-
-  // Send to API (placeholder, replace with actual API call)
-  appendMessage('user', prompt);
-  appendMessage('ai', 'Processing...');
-
-  try {
-    const response = await analyzeWithOpenAI(prompt, snapshot);
-    appendMessage('ai', response);
-  } catch (error) {
-    appendMessage('ai', 'Error analyzing the image. Please try again.');
-  }
+// Event: Change camera
+cameraSelect.addEventListener('change', () => {
+    startCamera(cameraSelect.value);
 });
 
-async function analyzeWithOpenAI(prompt, image) {
-  const apiKey = 'YOUR_API_KEY_HERE';
-  const response = await fetch('https://api.openai.com/v1/vision', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({ prompt, image }),
-  });
-  const data = await response.json();
-  return data.choices[0].text;
-}
+// Event: Send user prompt
+sendPrompt.addEventListener('click', async () => {
+    const prompt = userInput.value.trim();
+    if (!prompt) return alert('Please enter a prompt.');
 
-function appendMessage(sender, text) {
-  const message = document.createElement('div');
-  message.classList.add('message', sender);
-  message.innerText = text;
-  chatLog.appendChild(message);
-  chatLog.scrollTop = chatLog.scrollHeight;
-}
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-// Clear chat
-clearChatBtn.addEventListener('click', () => {
-  if (confirm('Are you sure you want to clear the chat?')) {
-    chatLog.innerHTML = '';
-  }
+    const imageBase64 = canvas.toDataURL('image/png').split(',')[1];
+
+    try {
+        const response = await fetch('https://api.openai.com/v1/images/analyze', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer YOUR_API_KEY_HERE`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                image: imageBase64,
+                prompt: prompt,
+            }),
+        });
+        const data = await response.json();
+        const aiResponse = data.choices[0].text;
+        const userMessage = `<div><strong>You:</strong> ${prompt}</div>`;
+        const aiMessage = `<div><strong>AI:</strong> ${aiResponse}</div>`;
+        chatLog.innerHTML += userMessage + aiMessage;
+        chatLog.scrollTop = chatLog.scrollHeight;
+    } catch (error) {
+        alert('Error analyzing the image: ' + error.message);
+    }
+});
+
+// Event: Clear chat
+clearChat.addEventListener('click', () => {
+    if (confirm('Are you sure you want to clear the chat?')) {
+        chatLog.innerHTML = '';
+    }
 });
 
 // Initialize app
-initializeCamera();
+getCameras();
+startCamera();
