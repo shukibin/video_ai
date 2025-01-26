@@ -1,27 +1,65 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="styles.css">
-  <link rel="manifest" href="manifest.json">
-  <title>AI Video Analysis</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#000000">
+    <link rel="manifest" href="manifest.json">
+    <title>AI Video Analyzer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        #video-container, #chat-container {
+            flex: 1;
+            overflow: hidden;
+        }
+        #video-container {
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        video {
+            max-height: 100%;
+            width: auto;
+        }
+        #chat-container {
+            padding: 10px;
+            background: #f8f9fa;
+            overflow-y: auto;
+        }
+        #controls {
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+        select, button, input {
+            padding: 5px;
+            font-size: 16px;
+        }
+    </style>
 </head>
 <body>
-  <div class="app">
     <div id="video-container">
-      <video id="video" autoplay playsinline></video>
-      <select id="camera-select"></select>
+        <video id="video" autoplay playsinline></video>
     </div>
     <div id="chat-container">
-      <div id="chat-log"></div>
-      <div id="chat-input">
-        <input type="text" id="user-input" placeholder="Enter your prompt here..." />
-        <button id="send-btn">Send</button>
-        <button id="clear-chat">Clear Chat</button>
-      </div>
+        <div id="controls">
+            <select id="camera-select"></select>
+            <button id="clear-chat">Clear Chat</button>
+        </div>
+        <div id="chat-log"></div>
+        <div>
+            <input type="text" id="user-input" placeholder="Enter your prompt">
+            <button id="send-prompt">Send</button>
+        </div>
     </div>
-  </div>
-  <script src="app.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
