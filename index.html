@@ -41,6 +41,11 @@
             padding: 10px;
             font-size: 14px;
         }
+        #error-log {
+            color: red;
+            font-size: 12px;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -52,6 +57,7 @@
         <input type="text" id="user-input" placeholder="Enter your prompt">
         <button id="send-prompt">Send Prompt</button>
         <button id="clear-chat">Clear Chat</button>
+        <div id="error-log"></div>
     </div>
     <script src="app.js"></script>
 </body>
