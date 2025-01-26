@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="manifest" href="manifest.json">
+  <title>AI Video Analysis</title>
+</head>
+<body>
+  <div class="app">
+    <div id="video-container">
+      <video id="video" autoplay playsinline></video>
+      <select id="camera-select"></select>
+    </div>
+    <div id="chat-container">
+      <div id="chat-log"></div>
+      <div id="chat-input">
+        <input type="text" id="user-input" placeholder="Enter your prompt here..." />
+        <button id="send-btn">Send</button>
+        <button id="clear-chat">Clear Chat</button>
+      </div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
