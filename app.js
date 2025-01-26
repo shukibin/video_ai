@@ -5,6 +5,7 @@ const userInput = document.getElementById('user-input');
 const sendPrompt = document.getElementById('send-prompt');
 const clearChat = document.getElementById('clear-chat');
 const apiKeyInput = document.getElementById('api-key-input');
+const errorLog = document.getElementById('error-log');
 
 let currentStream;
 
@@ -20,7 +21,7 @@ async function getCameras() {
             cameraSelect.appendChild(option);
         });
     } catch (error) {
-        alert('Error accessing cameras: ' + error.message);
+        displayError('Error accessing cameras: ' + error.message);
     }
 }
 
@@ -37,7 +38,7 @@ async function startCamera(deviceId) {
         video.srcObject = stream;
         currentStream = stream;
     } catch (error) {
-        alert('Camera feed unavailable. Please grant permissions and try again.');
+        displayError('Camera feed unavailable. Please grant permissions and try again.');
     }
 }
 
@@ -53,16 +54,16 @@ cameraSelect.addEventListener('change', () => {
 sendPrompt.addEventListener('click', async () => {
     const apiKey = apiKeyInput.value.trim();
     if (!apiKey) {
-        return alert('Please enter your OpenAI API key.');
+        return displayError('Please enter your OpenAI API key.');
     }
 
     const prompt = userInput.value.trim();
     if (!prompt) {
-        return alert('Please enter a prompt.');
+        return displayError('Please enter a prompt.');
     }
 
     if (!video.srcObject) {
-        return alert('Failed to fetch snapshot: Video feed is not available.');
+        return displayError('Failed to fetch snapshot: Video feed is not available.');
     }
 
     const canvas = document.createElement('canvas');
@@ -97,23 +98,17 @@ sendPrompt.addEventListener('click', async () => {
         });
 
         if (!response.ok) {
-            throw new Error(`API error: ${response.statusText}`);
+            if (response.status === 401) {
+                throw new Error('Invalid API key. Please check and try again.');
+            } else if (response.status === 400) {
+                throw new Error('Bad request. Verify the input data.');
+            } else if (response.status === 500) {
+                throw new Error('OpenAI server error. Please try again later.');
+            } else {
+                throw new Error(`Unexpected error: ${response.statusText}`);
+            }
         }
 
         const data = await response.json();
         const aiResponse = data.choices[0].message.content;
-        chatLog.innerHTML += `<div><strong>You:</strong> ${prompt}</div><div><strong>AI:</strong> ${aiResponse}</div>`;
-        chatLog.scrollTop = chatLog.scrollHeight;
-    } catch (error) {
-        console.error('Error during API call:', error);
-        alert('Failed to analyze image: ' + error.message);
-    }
-});
-
-clearChat.addEventListener('click', () => {
-    if (confirm('Are you sure you want to clear the chat?')) {
-        chatLog.innerHTML = '';
-    }
-});
-
-initializeCamera();
+        chatLog.inner
