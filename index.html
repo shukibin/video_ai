@@ -3,24 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Video Analyzer</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>AI Video Feed Analyzer</title>
     <link rel="manifest" href="manifest.json">
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        #video {
+            width: 100%;
+            height: 50%;
+            background: black;
+        }
+        #controls {
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+        }
+        #chat-log {
+            max-height: 150px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background: #f9f9f9;
+        }
+        #api-key-input {
+            width: 100%;
+            padding: 8px;
+            font-size: 14px;
+        }
+        button, select, input {
+            padding: 10px;
+            font-size: 14px;
+        }
+    </style>
 </head>
 <body>
-    <div id="app">
-        <div id="video-container">
-            <video id="video" autoplay playsinline></video>
-            <select id="camera-select"></select>
-        </div>
-        <div id="chat-container">
-            <div id="chat-log"></div>
-            <div id="chat-input">
-                <input id="user-input" type="text" placeholder="Enter your prompt">
-                <button id="send-prompt">Send</button>
-                <button id="clear-chat">Clear Chat</button>
-            </div>
-        </div>
+    <video id="video" autoplay></video>
+    <div id="controls">
+        <input type="text" id="api-key-input" placeholder="Paste your OpenAI API key here">
+        <select id="camera-select"></select>
+        <div id="chat-log"></div>
+        <input type="text" id="user-input" placeholder="Enter your prompt">
+        <button id="send-prompt">Send Prompt</button>
+        <button id="clear-chat">Clear Chat</button>
     </div>
     <script src="app.js"></script>
 </body>
