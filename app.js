@@ -112,3 +112,5 @@ sendPrompt.addEventListener('click', async () => {
         const data = await response.json();
         const aiResponse = data.choices[0].message.content;
         chatLog.inner
+
+    
