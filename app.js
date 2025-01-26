@@ -78,7 +78,7 @@ sendPrompt.addEventListener('click', async () => {
         const response = await fetch('https://api.openai.com/v1/images/analyze', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer YOUR_API_KEY_HERE`,
+                'Authorization': `Bearer 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`,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
