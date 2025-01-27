@@ -140,7 +140,8 @@ async function sendToOpenAI(prompt, imageData) {
                 'Authorization': `Bearer ${OPENAI_API_KEY}`
             },
             body: JSON.stringify({
-                model: 'gpt-4-vision-preview',
+                // model: 'gpt-4-vision-preview',
+                model: 'gpt-4',
                 messages: [
                     ...conversationHistory,
                     {
