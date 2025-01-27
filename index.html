@@ -7,29 +7,50 @@
   <link rel="manifest" href="manifest.json">
   <style>
     body {
-      margin: 0;
       font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
-    #video-container, #chat-container {
-      padding: 10px;
-    }
-    #video {
+    #video-container {
       width: 100%;
       background-color: black;
-      border: 2px solid #ccc;
+      position: relative;
+    }
+    video {
+      width: 100%;
+      height: auto;
+      background-color: black;
+    }
+    #cameraSelect {
+      margin: 10px 0;
+    }
+    #error-message {
+      color: red;
+      margin: 10px;
+    }
+    #chat-container {
+      width: 100%;
+      padding: 10px;
+      box-sizing: border-box;
     }
     #chat {
-      max-height: 30%;
+      max-height: 150px;
       overflow-y: auto;
       border: 1px solid #ccc;
-    }
-    button, select, input {
-      margin: 5px;
       padding: 10px;
+      margin-bottom: 10px;
     }
-    .error-message {
-      color: red;
-      margin-top: 10px;
+    input, button, select {
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    button {
+      cursor: pointer;
     }
   </style>
 </head>
@@ -37,16 +58,15 @@
   <div id="video-container">
     <video id="video" autoplay playsinline></video>
     <select id="cameraSelect"></select>
-    <p id="error-message" class="error-message"></p>
+    <p id="error-message"></p>
   </div>
   <div id="chat-container">
-    <input id="apiKey" type="text" placeholder="Paste your OpenAI API key here">
+    <input id="apiKey" type="text" placeholder="Paste your OpenAI API key">
     <input id="prompt" type="text" placeholder="Enter your prompt">
     <button id="sendPrompt">Send Prompt</button>
     <button id="clearChat">Clear Chat</button>
     <div id="chat"></div>
   </div>
-
   <script src="app.js"></script>
 </body>
 </html>
