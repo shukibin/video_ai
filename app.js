@@ -256,9 +256,13 @@ userInput.addEventListener('keypress', (e) => {
 // Service Worker Registration
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(error => {
-            console.error('ServiceWorker registration failed:', error);
-        });
+        navigator.serviceWorker.register('/video_ai/sw.js')
+            .then(registration => {
+                console.log('ServiceWorker registered:', registration);
+            })
+            .catch(error => {
+                console.error('ServiceWorker registration failed:', error);
+            });
     });
 }
 
