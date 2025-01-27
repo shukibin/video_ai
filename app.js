@@ -268,3 +268,4 @@ if ('serviceWorker' in navigator) {
 
 // Initialize the application
 handleApiKeySetup();
+
