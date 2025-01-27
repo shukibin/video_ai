@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Video Analyzer</title>
-  <link rel="manifest" href="manifest.json">
+  <title>AI Camera App</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -13,61 +12,54 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-    }
-    #video-container {
-      width: 100%;
-      background-color: black;
-      position: relative;
+      justify-content: center;
+      min-height: 100vh;
+      background-color: #f4f4f9;
     }
     video {
-      width: 100%;
-      height: auto;
-      background-color: black;
-    }
-    #cameraSelect {
-      margin: 10px 0;
-    }
-    #error-message {
-      color: red;
-      margin: 10px;
-    }
-    #chat-container {
-      width: 100%;
-      padding: 10px;
-      box-sizing: border-box;
-    }
-    #chat {
-      max-height: 150px;
-      overflow-y: auto;
-      border: 1px solid #ccc;
-      padding: 10px;
+      border: 2px solid #000;
+      border-radius: 8px;
       margin-bottom: 10px;
     }
-    input, button, select {
-      width: 100%;
-      margin-bottom: 10px;
-      padding: 10px;
-      box-sizing: border-box;
+    select, input, button {
+      margin: 5px 0;
+      padding: 8px;
+      font-size: 16px;
     }
     button {
       cursor: pointer;
     }
+    #error-message {
+      color: red;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+    #chat {
+      margin-top: 20px;
+      max-width: 500px;
+      width: 100%;
+      border: 1px solid #ccc;
+      padding: 10px;
+      background: #fff;
+      border-radius: 5px;
+    }
+    #chat p {
+      margin: 5px 0;
+    }
+    #chat strong {
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
-  <div id="video-container">
-    <video id="video" autoplay playsinline></video>
-    <select id="cameraSelect"></select>
-    <p id="error-message"></p>
-  </div>
-  <div id="chat-container">
-    <input id="apiKey" type="text" placeholder="Paste your OpenAI API key">
-    <input id="prompt" type="text" placeholder="Enter your prompt">
-    <button id="sendPrompt">Send Prompt</button>
-    <button id="clearChat">Clear Chat</button>
-    <div id="chat"></div>
-  </div>
+  <video id="video" autoplay playsinline></video>
+  <select id="cameraSelect"></select>
+  <div id="error-message"></div>
+  <input type="text" id="apiKey" placeholder="Paste your OpenAI API key here" style="width: 300px;">
+  <input type="text" id="prompt" placeholder="Enter your prompt" style="width: 300px;">
+  <button id="sendPrompt">Send Prompt</button>
+  <button id="clearChat">Clear Chat</button>
+  <div id="chat"></div>
   <script src="app.js"></script>
 </body>
 </html>
-
