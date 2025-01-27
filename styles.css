@@ -1,84 +1,177 @@
-body {
+* {
     margin: 0;
-    font-family: Arial, sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
     height: 100vh;
     overflow: hidden;
-    background: #f4f4f4;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
 
-#app {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    width: 100%;
-}
-
-#video-container {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background: black;
+#videoContainer {
+    height: 50vh;
     position: relative;
+    background: #000;
+    overflow: hidden;
 }
 
-video {
+#videoElement {
     width: 100%;
-    height: auto;
-    max-height: 50%;
-    background: black;
+    height: 100%;
+    object-fit: contain;
 }
 
-#camera-select {
+.camera-select {
     position: absolute;
     top: 10px;
     right: 10px;
-    z-index: 10;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
 }
 
-#chat-container {
-    flex: 1;
+#chatContainer {
+    height: 50vh;
     display: flex;
     flex-direction: column;
-    padding: 10px;
-    background: #ffffff;
-    border-top: 2px solid #e0e0e0;
+    background: #f5f5f5;
 }
 
-#chat-log {
+#chatMessages {
     flex: 1;
     overflow-y: auto;
-    border: 1px solid #ccc;
-    margin-bottom: 10px;
     padding: 10px;
-    background: #f9f9f9;
 }
 
-#chat-input {
+.message {
+    margin: 8px 0;
+    padding: 8px 12px;
+    border-radius: 8px;
+    max-width: 80%;
+    word-wrap: break-word;
+}
+
+.user-message {
+    background: #007AFF;
+    color: white;
+    margin-left: auto;
+}
+
+.ai-message {
+    background: #E9E9EB;
+    color: black;
+    margin-right: auto;
+}
+
+#inputContainer {
     display: flex;
-    gap: 10px;
+    padding: 10px;
+    background: white;
+    border-top: 1px solid #ddd;
 }
 
-#chat-input input {
+#userInput {
     flex: 1;
-    padding: 10px;
-    border: 1px solid #ccc;
+    padding: 8px;
+    border: 1px solid #ddd;
     border-radius: 4px;
+    margin-right: 8px;
+    resize: none;
+    height: 40px;
 }
 
-#chat-input button {
-    padding: 10px;
+#sendButton {
+    padding: 8px 16px;
+    background: #007AFF;
+    color: white;
     border: none;
     border-radius: 4px;
-    background: #007bff;
-    color: #fff;
     cursor: pointer;
 }
 
-#chat-input button:hover {
-    background: #0056b3;
+#clearChat {
+    padding: 8px;
+    margin: 8px;
+    background: #ff3b30;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.dialog-content {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    width: 80%;
+    max-width: 400px;
+}
+
+.dialog h3 {
+    margin-bottom: 10px;
+}
+
+.dialog button {
+    margin: 5px;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.hidden {
+    display: none !important;
+}
+
+#loadingSpinner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 999;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #007AFF;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.error-details {
+    margin-top: 10px;
+    padding: 10px;
+    background: #f5f5f5;
+    border-radius: 4px;
+    font-size: 12px;
+    overflow-x: auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
