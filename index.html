@@ -1,65 +1,55 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Camera App</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      background-color: #f4f4f9;
-    }
-    video {
-      border: 2px solid #000;
-      border-radius: 8px;
-      margin-bottom: 10px;
-    }
-    select, input, button {
-      margin: 5px 0;
-      padding: 8px;
-      font-size: 16px;
-    }
-    button {
-      cursor: pointer;
-    }
-    #error-message {
-      color: red;
-      font-size: 14px;
-      margin-bottom: 10px;
-    }
-    #chat {
-      margin-top: 20px;
-      max-width: 500px;
-      width: 100%;
-      border: 1px solid #ccc;
-      padding: 10px;
-      background: #fff;
-      border-radius: 5px;
-    }
-    #chat p {
-      margin: 5px 0;
-    }
-    #chat strong {
-      font-weight: bold;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Video Analysis AI</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="styles.css">
+    <meta name="theme-color" content="#ffffff">
 </head>
 <body>
-  <video id="video" autoplay playsinline></video>
-  <select id="cameraSelect"></select>
-  <div id="error-message"></div>
-  <input type="text" id="apiKey" placeholder="Paste your OpenAI API key here" style="width: 300px;">
-  <input type="text" id="prompt" placeholder="Enter your prompt" style="width: 300px;">
-  <button id="sendPrompt">Send Prompt</button>
-  <button id="clearChat">Clear Chat</button>
-  <div id="chat"></div>
-  <script src="app.js"></script>
+    <div id="videoContainer">
+        <video id="videoElement" autoplay playsinline></video>
+        <select id="cameraSelect" class="camera-select">
+            <option value="">Loading cameras...</option>
+        </select>
+    </div>
+    
+    <div id="chatContainer">
+        <div id="chatMessages"></div>
+        <div id="inputContainer">
+            <textarea id="userInput" maxlength="1000" placeholder="Ask me about what you see..."></textarea>
+            <button id="sendButton">Send</button>
+        </div>
+        <button id="clearChat">Clear Chat</button>
+    </div>
+
+    <div id="loadingSpinner" class="hidden">
+        <div class="spinner"></div>
+    </div>
+
+    <div id="errorDialog" class="dialog hidden">
+        <div class="dialog-content">
+            <h3>Error</h3>
+            <p id="errorMessage"></p>
+            <div class="error-details hidden" id="errorDetails">
+                <pre id="errorTrace"></pre>
+            </div>
+            <button id="errorClose">Close</button>
+            <button id="errorRetry" class="hidden">Retry</button>
+        </div>
+    </div>
+
+    <div id="confirmDialog" class="dialog hidden">
+        <div class="dialog-content">
+            <h3>Confirm</h3>
+            <p>Are you sure you want to clear the chat history?</p>
+            <button id="confirmYes">Yes</button>
+            <button id="confirmNo">No</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
 </body>
 </html>
