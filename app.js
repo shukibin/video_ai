@@ -111,6 +111,8 @@ sendPrompt.addEventListener('click', async () => {
 
         const data = await response.json();
         const aiResponse = data.choices[0].message.content;
-        chatLog.inner
-
-    
+        chatLog.innerHTML += `<div><strong>You:</strong> ${prompt}</div><div><strong>AI:</strong> ${aiResponse}</div>`;
+        chatLog.scrollTop = chatLog.scrollHeight;
+        errorLog.style.display = 'none'; // Clear errors if the request is successful
+    } catch (error) {
+        displayError('Error during API call: ' + error
