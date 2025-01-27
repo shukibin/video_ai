@@ -9,10 +9,20 @@ const errorLog = document.getElementById('error-log');
 
 let currentStream;
 
+// Log errors and display them to the user
+function displayError(message) {
+    console.error(message);
+    errorLog.textContent = message;
+    errorLog.style.display = 'block';
+}
+
+// Fetch available cameras
 async function getCameras() {
     try {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        if (videoDevices.length === 0) throw new Error('No cameras detected.');
+        
         cameraSelect.innerHTML = '';
         videoDevices.forEach((device, index) => {
             const option = document.createElement('option');
@@ -25,6 +35,7 @@ async function getCameras() {
     }
 }
 
+// Start video stream with the selected camera
 async function startCamera(deviceId) {
     if (currentStream) {
         currentStream.getTracks().forEach(track => track.stop());
@@ -37,14 +48,10 @@ async function startCamera(deviceId) {
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         video.srcObject = stream;
         currentStream = stream;
+        errorLog.style.display = 'none'; // Clear error if successful
     } catch (error) {
-        displayError('Camera feed unavailable. Please grant permissions and try again.');
+        displayError('Failed to start camera. ' + error.message);
     }
-}
-
-async function initializeCamera() {
-    await getCameras();
-    await startCamera(cameraSelect.value);
 }
 
 cameraSelect.addEventListener('change', () => {
@@ -71,48 +78,4 @@ sendPrompt.addEventListener('click', async () => {
     canvas.height = video.videoHeight;
 
     const context = canvas.getContext('2d');
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    const imageBase64 = canvas.toDataURL('image/png').split(',')[1];
-
-    try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                model: "gpt-4",
-                messages: [
-                    { role: "system", content: "You are an AI assistant analyzing images." },
-                    { role: "user", content: prompt },
-                ],
-                attachments: [
-                    {
-                        type: "image/png",
-                        data: imageBase64,
-                    },
-                ],
-            }),
-        });
-
-        if (!response.ok) {
-            if (response.status === 401) {
-                throw new Error('Invalid API key. Please check and try again.');
-            } else if (response.status === 400) {
-                throw new Error('Bad request. Verify the input data.');
-            } else if (response.status === 500) {
-                throw new Error('OpenAI server error. Please try again later.');
-            } else {
-                throw new Error(`Unexpected error: ${response.statusText}`);
-            }
-        }
-
-        const data = await response.json();
-        const aiResponse = data.choices[0].message.content;
-        chatLog.innerHTML += `<div><strong>You:</strong> ${prompt}</div><div><strong>AI:</strong> ${aiResponse}</div>`;
-        chatLog.scrollTop = chatLog.scrollHeight;
-        errorLog.style.display = 'none'; // Clear errors if the request is successful
-    } catch (error) {
-        displayError('Error during API call: ' + error
+    context.drawImage(video, 0,
