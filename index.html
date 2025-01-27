@@ -9,6 +9,18 @@
     <meta name="theme-color" content="#ffffff">
 </head>
 <body>
+    <div id="setupDialog" class="dialog">
+        <div class="dialog-content">
+            <h3>Setup Required</h3>
+            <p>Please enter your OpenAI API key to continue:</p>
+            <input type="password" id="apiKeyInput" placeholder="sk-..." class="api-key-input">
+            <div class="button-group">
+                <button id="saveApiKey">Save & Start</button>
+            </div>
+            <p class="small-text">This key will be stored in your browser's local storage.</p>
+        </div>
+    </div>
+
     <div id="videoContainer">
         <video id="videoElement" autoplay playsinline></video>
         <select id="cameraSelect" class="camera-select">
