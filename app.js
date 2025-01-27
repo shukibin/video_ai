@@ -153,7 +153,7 @@ async function sendToOpenAI(prompt, imageData) {
         loadingSpinner.classList.remove('hidden');
         
         const payload = {
-            model: 'gpt-4o',  // Updated to use the vision model
+            model: 'gpt-4o-mini',  // Updated to use the vision model
             messages: [
                 ...conversationHistory,
                 {
