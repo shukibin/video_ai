@@ -24,19 +24,30 @@ const setupDialog = document.getElementById('setupDialog');
 const apiKeyInput = document.getElementById('apiKeyInput');
 const saveApiKeyButton = document.getElementById('saveApiKey');
 
+// Debug logging
+const DEBUG = true;
+function debugLog(...args) {
+    if (DEBUG) {
+        console.log('[Debug]', ...args);
+    }
+}
+
 // API Key Management
 function isValidApiKey(key) {
     return key.startsWith('sk-') && key.length > 20;
 }
 
 function handleApiKeySetup() {
+    debugLog('Initializing API key setup');
     const savedApiKey = localStorage.getItem('openai_api_key');
     if (savedApiKey) {
         OPENAI_API_KEY = savedApiKey;
         setupDialog.classList.add('hidden');
         initializeCamera();
+        debugLog('API key found in localStorage');
     } else {
         setupDialog.classList.remove('hidden');
+        debugLog('No API key found, showing setup dialog');
     }
 }
 
@@ -46,8 +57,9 @@ function clearApiKey() {
     window.location.reload();
 }
 
-// Error handling function
+// Enhanced error handling
 function showError(message, details = '', showRetry = false) {
+    debugLog('Error occurred:', message, details);
     errorMessage.textContent = message;
     if (details) {
         errorDetails.classList.remove('hidden');
@@ -61,23 +73,25 @@ function showError(message, details = '', showRetry = false) {
 
 // Initialize camera
 async function initializeCamera() {
+    debugLog('Initializing camera');
     try {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        debugLog('Found video devices:', videoDevices.length);
 
-        // Populate camera select
         cameraSelect.innerHTML = videoDevices.map(device =>
             `<option value="${device.deviceId}">${device.label || `Camera ${videoDevices.indexOf(device) + 1}`}</option>`
         ).join('');
 
-        // Start with the first available camera
         if (videoDevices.length > 0) {
             await startCamera(videoDevices[0].deviceId);
+        } else {
+            throw new Error('No video devices found');
         }
     } catch (error) {
         showError(
             'Failed to initialize camera. Please ensure camera permissions are granted.',
-            `Error: ${error.message}\nLine: ${error.lineNumber || 'Unknown'}`,
+            `Error: ${error.message}\nStack: ${error.stack || 'No stack trace available'}`,
             true
         );
     }
@@ -85,6 +99,7 @@ async function initializeCamera() {
 
 // Start camera stream
 async function startCamera(deviceId) {
+    debugLog('Starting camera with deviceId:', deviceId);
     try {
         if (currentStream) {
             currentStream.getTracks().forEach(track => track.stop());
@@ -99,10 +114,11 @@ async function startCamera(deviceId) {
 
         currentStream = await navigator.mediaDevices.getUserMedia(constraints);
         videoElement.srcObject = currentStream;
+        debugLog('Camera stream started successfully');
     } catch (error) {
         showError(
             'Failed to start camera stream.',
-            `Error: ${error.message}\nLine: ${error.lineNumber || 'Unknown'}`,
+            `Error: ${error.message}\nStack: ${error.stack || 'No stack trace available'}`,
             true
         );
     }
@@ -110,6 +126,7 @@ async function startCamera(deviceId) {
 
 // Take snapshot from video feed
 function takeSnapshot() {
+    debugLog('Taking snapshot');
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
     canvas.width = videoElement.videoWidth;
@@ -120,6 +137,7 @@ function takeSnapshot() {
 
 // Add message to chat
 function addMessage(message, isUser = false) {
+    debugLog('Adding message:', isUser ? 'User' : 'AI');
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${isUser ? 'user-message' : 'ai-message'}`;
     messageDiv.textContent = message;
@@ -128,61 +146,71 @@ function addMessage(message, isUser = false) {
     conversationHistory.push({ role: isUser ? 'user' : 'assistant', content: message });
 }
 
-// Send message to OpenAI API
+// Send message to OpenAI API with enhanced error handling
 async function sendToOpenAI(prompt, imageData) {
+    debugLog('Sending request to OpenAI');
     try {
         loadingSpinner.classList.remove('hidden');
         
+        const payload = {
+            model: 'gpt-4-vision-preview',  // Updated to use the vision model
+            messages: [
+                ...conversationHistory,
+                {
+                    role: 'user',
+                    content: [
+                        { type: 'text', text: prompt },
+                        { 
+                            type: 'image_url', 
+                            image_url: { 
+                                url: imageData,
+                                detail: 'low'  // Add detail level
+                            } 
+                        }
+                    ]
+                }
+            ],
+            max_tokens: 500
+        };
+
+        debugLog('Request payload:', JSON.stringify(payload, null, 2));
+
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${OPENAI_API_KEY}`
             },
-            body: JSON.stringify({
-                // model: 'gpt-4-vision-preview',
-                model: 'gpt-4',
-                messages: [
-                    ...conversationHistory,
-                    {
-                        role: 'user',
-                        content: [
-                            { type: 'text', text: prompt },
-                            { type: 'image_url', image_url: { url: imageData } }
-                        ]
-                    }
-                ],
-                max_tokens: 500
-            })
+            body: JSON.stringify(payload)
         });
 
+        debugLog('Response status:', response.status);
+
         if (!response.ok) {
-            throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+            const errorData = await response.json().catch(() => ({}));
+            debugLog('Error response:', errorData);
+            
+            throw new Error(
+                `API request failed: ${response.status} ${response.statusText}\n` +
+                `Error: ${errorData.error?.message || 'Unknown error'}`
+            );
         }
 
         const data = await response.json();
+        debugLog('Successful response:', data);
+        
         return data.choices[0].message.content;
     } catch (error) {
-        throw new Error(`OpenAI API Error: ${error.message}`);
+        debugLog('API Error:', error);
+        throw new Error(`OpenAI API Error: ${error.message}\nStack: ${error.stack || 'No stack trace available'}`);
     } finally {
         loadingSpinner.classList.add('hidden');
     }
 }
 
-// Update the API key event listeners section
-apiKeyInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        handleApiKeySubmission();
-    }
-});
-
-saveApiKeyButton.addEventListener('click', () => {
-    handleApiKeySubmission();
-});
-
-// Add this new function to handle the API key submission
+// API key submission handler
 function handleApiKeySubmission() {
+    debugLog('Handling API key submission');
     const apiKey = apiKeyInput.value.trim();
     if (!isValidApiKey(apiKey)) {
         showError('Invalid API key format. It should start with "sk-" and be at least 20 characters long.');
@@ -193,12 +221,22 @@ function handleApiKeySubmission() {
         localStorage.setItem('openai_api_key', apiKey);
         OPENAI_API_KEY = apiKey;
         setupDialog.classList.add('hidden');
-        initializeCamera(); // Start the app
+        initializeCamera();
+        debugLog('API key saved successfully');
     } catch (error) {
         showError('Failed to save API key', error.message);
     }
 }
 
+// Event Listeners
+apiKeyInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        handleApiKeySubmission();
+    }
+});
+
+saveApiKeyButton.addEventListener('click', handleApiKeySubmission);
 
 cameraSelect.addEventListener('change', (e) => {
     startCamera(e.target.value);
@@ -208,6 +246,7 @@ sendButton.addEventListener('click', async () => {
     const prompt = userInput.value.trim();
     if (!prompt) return;
 
+    debugLog('Send button clicked with prompt:', prompt);
     try {
         const imageData = takeSnapshot();
         addMessage(prompt, true);
@@ -218,7 +257,7 @@ sendButton.addEventListener('click', async () => {
     } catch (error) {
         showError(
             'Failed to process request.',
-            `Error: ${error.message}\nLine: ${error.lineNumber || 'Unknown'}`
+            `Error: ${error.message}\nStack: ${error.stack || 'No stack trace available'}`
         );
     }
 });
@@ -231,6 +270,7 @@ confirmYes.addEventListener('click', () => {
     chatMessages.innerHTML = '';
     conversationHistory = [];
     confirmDialog.classList.add('hidden');
+    debugLog('Chat cleared');
 });
 
 confirmNo.addEventListener('click', () => {
@@ -258,7 +298,7 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/video_ai/sw.js')
             .then(registration => {
-                console.log('ServiceWorker registered:', registration);
+                debugLog('ServiceWorker registered:', registration);
             })
             .catch(error => {
                 console.error('ServiceWorker registration failed:', error);
@@ -268,4 +308,3 @@ if ('serviceWorker' in navigator) {
 
 // Initialize the application
 handleApiKeySetup();
-
