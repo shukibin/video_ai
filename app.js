@@ -170,7 +170,7 @@ async function sendToOpenAI(prompt, imageData) {
                     ]
                 }
             ],
-            max_tokens: 500
+            // max_tokens: 500
         };
 
         debugLog('Request payload:', JSON.stringify(payload, null, 2));
