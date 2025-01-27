@@ -35,7 +35,7 @@ async function initializeCameras() {
     // Start the default camera
     startCamera(videoDevices[0].deviceId);
   } catch (err) {
-    errorMessage.textContent = `Camera Error: ${err.message}`;
+    handleCameraError(err, "Error initializing cameras.");
   }
 }
 
@@ -51,7 +51,26 @@ async function startCamera(deviceId) {
     video.srcObject = currentStream;
     errorMessage.textContent = "";
   } catch (err) {
-    errorMessage.textContent = `Failed to start camera: ${err.message}`;
+    handleCameraError(err, "Failed to start camera.");
+  }
+}
+
+// Handle camera-related errors
+function handleCameraError(error, context) {
+  console.error(context, error);
+
+  switch (error.name) {
+    case "NotAllowedError":
+      errorMessage.textContent = `${context}: Camera access was denied. Please allow camera permissions in your browser settings.`;
+      break;
+    case "NotFoundError":
+      errorMessage.textContent = `${context}: No camera devices found. Please connect a camera.`;
+      break;
+    case "NotReadableError":
+      errorMessage.textContent = `${context}: Camera is already in use by another application.`;
+      break;
+    default:
+      errorMessage.textContent = `${context}: ${error.message}`;
   }
 }
 
