@@ -9,61 +9,54 @@ const clearChatBtn = document.getElementById("clearChat");
 
 let currentStream = null;
 
-// Utility to stop all media tracks
-const stopStream = () => {
+// Stop the current video stream
+function stopCurrentStream() {
   if (currentStream) {
-    currentStream.getTracks().forEach(track => track.stop());
+    currentStream.getTracks().forEach((track) => track.stop());
+    currentStream = null;
   }
-};
+}
 
-// Initialize the camera list
-const getCameras = async () => {
+// Initialize camera devices
+async function initializeCameras() {
   try {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
-      throw new Error("Camera API not supported in this browser.");
-    }
-
     const devices = await navigator.mediaDevices.enumerateDevices();
-    const videoDevices = devices.filter(device => device.kind === "videoinput");
+    const videoDevices = devices.filter((device) => device.kind === "videoinput");
 
     if (videoDevices.length === 0) {
-      throw new Error("No cameras found. Please check your device or permissions.");
+      throw new Error("No cameras found on this device.");
     }
 
+    // Populate the camera select dropdown
     cameraSelect.innerHTML = videoDevices
       .map((device, index) => `<option value="${device.deviceId}">${device.label || `Camera ${index + 1}`}</option>`)
       .join("");
 
+    // Start the default camera
     startCamera(videoDevices[0].deviceId);
   } catch (err) {
-    errorMessage.textContent = `Error: ${err.message}`;
+    errorMessage.textContent = `Camera Error: ${err.message}`;
   }
-};
+}
 
-// Start the camera feed
-const startCamera = async (deviceId) => {
-  stopStream();
+// Start the selected camera
+async function startCamera(deviceId) {
+  stopCurrentStream();
+
   try {
-    const constraints = {
-      video: { deviceId: deviceId ? { exact: deviceId } : undefined }
-    };
+    currentStream = await navigator.mediaDevices.getUserMedia({
+      video: { deviceId: { exact: deviceId } },
+    });
 
-    currentStream = await navigator.mediaDevices.getUserMedia(constraints);
     video.srcObject = currentStream;
     errorMessage.textContent = "";
   } catch (err) {
     errorMessage.textContent = `Failed to start camera: ${err.message}`;
   }
-};
+}
 
-// Handle camera change
-cameraSelect.addEventListener("change", () => {
-  const selectedDeviceId = cameraSelect.value;
-  startCamera(selectedDeviceId);
-});
-
-// Handle sending prompt
-sendPromptBtn.addEventListener("click", async () => {
+// Send a prompt and snapshot to the OpenAI API
+async function sendPrompt() {
   const apiKey = apiKeyInput.value.trim();
   const prompt = promptInput.value.trim();
 
@@ -78,30 +71,30 @@ sendPromptBtn.addEventListener("click", async () => {
   }
 
   try {
-    // Capture a snapshot from the video feed
+    // Take a snapshot from the video feed
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const context = canvas.getContext("2d");
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    const snapshot = canvas.toDataURL("image/jpeg").split(",")[1]; // Base64 format
+    const snapshot = canvas.toDataURL("image/jpeg").split(",")[1];
 
-    // Send request to OpenAI API
+    // Send data to OpenAI API
     const response = await fetch("https://api.openai.com/v1/images/analyze", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
+        "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         input: prompt,
-        image: snapshot
-      })
+        image: snapshot,
+      }),
     });
 
     if (!response.ok) {
-      throw new Error(`API Error: ${response.statusText}`);
+      throw new Error(`OpenAI API Error: ${response.statusText}`);
     }
 
     const data = await response.json();
@@ -113,15 +106,20 @@ sendPromptBtn.addEventListener("click", async () => {
   } catch (err) {
     errorMessage.textContent = `Error: ${err.message}`;
   }
-});
+}
 
 // Clear chat
 clearChatBtn.addEventListener("click", () => {
   if (confirm("Are you sure you want to clear the chat?")) {
     chatContainer.innerHTML = "";
-    errorMessage.textContent = "";
   }
 });
 
-// Initialize
-getCameras();
+// Event listeners
+cameraSelect.addEventListener("change", () => {
+  startCamera(cameraSelect.value);
+});
+sendPromptBtn.addEventListener("click", sendPrompt);
+
+// Initialize the application
+initializeCameras();
