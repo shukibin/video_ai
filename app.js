@@ -168,8 +168,20 @@ async function sendToOpenAI(prompt, imageData) {
     }
 }
 
-// Event Listeners
+// Update the API key event listeners section
+apiKeyInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        handleApiKeySubmission();
+    }
+});
+
 saveApiKeyButton.addEventListener('click', () => {
+    handleApiKeySubmission();
+});
+
+// Add this new function to handle the API key submission
+function handleApiKeySubmission() {
     const apiKey = apiKeyInput.value.trim();
     if (!isValidApiKey(apiKey)) {
         showError('Invalid API key format. It should start with "sk-" and be at least 20 characters long.');
@@ -180,11 +192,12 @@ saveApiKeyButton.addEventListener('click', () => {
         localStorage.setItem('openai_api_key', apiKey);
         OPENAI_API_KEY = apiKey;
         setupDialog.classList.add('hidden');
-        initializeCamera();
+        initializeCamera(); // Start the app
     } catch (error) {
         showError('Failed to save API key', error.message);
     }
-});
+}
+
 
 cameraSelect.addEventListener('change', (e) => {
     startCamera(e.target.value);
