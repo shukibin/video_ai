@@ -1,7 +1,5 @@
-// Replace with your OpenAI API key
-const OPENAI_API_KEY = 'your-api-key-here';
-
 // Global variables
+let OPENAI_API_KEY = '';
 let currentStream = null;
 let conversationHistory = [];
 
@@ -22,6 +20,31 @@ const errorRetry = document.getElementById('errorRetry');
 const confirmDialog = document.getElementById('confirmDialog');
 const confirmYes = document.getElementById('confirmYes');
 const confirmNo = document.getElementById('confirmNo');
+const setupDialog = document.getElementById('setupDialog');
+const apiKeyInput = document.getElementById('apiKeyInput');
+const saveApiKeyButton = document.getElementById('saveApiKey');
+
+// API Key Management
+function isValidApiKey(key) {
+    return key.startsWith('sk-') && key.length > 20;
+}
+
+function handleApiKeySetup() {
+    const savedApiKey = localStorage.getItem('openai_api_key');
+    if (savedApiKey) {
+        OPENAI_API_KEY = savedApiKey;
+        setupDialog.classList.add('hidden');
+        initializeCamera();
+    } else {
+        setupDialog.classList.remove('hidden');
+    }
+}
+
+function clearApiKey() {
+    localStorage.removeItem('openai_api_key');
+    OPENAI_API_KEY = '';
+    window.location.reload();
+}
 
 // Error handling function
 function showError(message, details = '', showRetry = false) {
@@ -146,6 +169,23 @@ async function sendToOpenAI(prompt, imageData) {
 }
 
 // Event Listeners
+saveApiKeyButton.addEventListener('click', () => {
+    const apiKey = apiKeyInput.value.trim();
+    if (!isValidApiKey(apiKey)) {
+        showError('Invalid API key format. It should start with "sk-" and be at least 20 characters long.');
+        return;
+    }
+    
+    try {
+        localStorage.setItem('openai_api_key', apiKey);
+        OPENAI_API_KEY = apiKey;
+        setupDialog.classList.add('hidden');
+        initializeCamera();
+    } catch (error) {
+        showError('Failed to save API key', error.message);
+    }
+});
+
 cameraSelect.addEventListener('change', (e) => {
     startCamera(e.target.value);
 });
@@ -209,4 +249,4 @@ if ('serviceWorker' in navigator) {
 }
 
 // Initialize the application
-initializeCamera();
+handleApiKeySetup();
