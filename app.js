@@ -27,12 +27,10 @@ async function initializeCameras() {
       throw new Error("No cameras found on this device.");
     }
 
-    // Populate the camera select dropdown
     cameraSelect.innerHTML = videoDevices
       .map((device, index) => `<option value="${device.deviceId}">${device.label || `Camera ${index + 1}`}</option>`)
       .join("");
 
-    // Start the default camera
     startCamera(videoDevices[0].deviceId);
   } catch (err) {
     handleCameraError(err, "Error initializing cameras.");
@@ -113,17 +111,18 @@ async function sendPrompt() {
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI API Error: ${response.statusText}`);
+      const errorDetails = await response.json();
+      throw new Error(`OpenAI API Error: ${errorDetails.error.message || response.statusText}`);
     }
 
     const data = await response.json();
     const aiResponse = data.output || "No response received.";
 
-    // Update chat
     chatContainer.innerHTML += `<p><strong>You:</strong> ${prompt}</p>`;
     chatContainer.innerHTML += `<p><strong>AI:</strong> ${aiResponse}</p>`;
   } catch (err) {
     errorMessage.textContent = `Error: ${err.message}`;
+    console.error("Error sending prompt:", err);
   }
 }
 
