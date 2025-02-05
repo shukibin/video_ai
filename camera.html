@@ -162,7 +162,7 @@
         // Basic parse of the ID token
         const payload = jwt.split('.')[1];
         const decoded = JSON.parse(atob(payload));
-        // We'll use the 'email' field, as requested
+        // We'll use the 'email' field
         return decoded.email || "unknown@example.com";
       } catch (err) {
         logError("Error parsing Google ID token", err);
@@ -221,8 +221,12 @@
         await detectDeviceId();
 
         const stream = await navigator.mediaDevices.getUserMedia({
-          // facingMode 'environment' tries to use the rear camera on mobile
-          video: { facingMode: "environment" }
+          video: {
+            // Attempt maximum resolution
+            width: { ideal: 9999 },
+            height: { ideal: 9999 },
+            facingMode: "environment"
+          }
         });
         cameraView.srcObject = stream;
       } catch (err) {
