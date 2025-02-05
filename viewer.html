@@ -85,14 +85,14 @@
       padding: 0;
     }
 
+    /* Folder node styling */
     .folder-node {
-      display: flex;
+      display: inline-flex;
       align-items: center;
       cursor: pointer;
       font-weight: bold;
-      margin: 0.2rem 0;
+      margin: 0.3rem 0;
     }
-
     .folder-icon {
       width: 1.5rem;
       text-align: center;
@@ -101,23 +101,21 @@
       color: #1d4ed8;
     }
 
+    /* Sub-tree container for folder contents */
     .folder-contents {
-      margin-left: 1.5rem;
-      border-left: 1px dotted #999;
-      padding-left: 1rem;
       display: none;
+      margin-left: 1.5rem; /* slightly shift contents to the right */
+    }
+    .expanded {
+      display: block !important;
     }
 
+    /* File node styling */
     .file-node {
-      margin: 0.2rem 0;
-      margin-left: 1.8rem;
+      margin: 0.3rem 0 0.3rem 1.8rem; /* left indent for files */
       color: #1d4ed8;
       text-decoration: underline;
       cursor: pointer;
-    }
-
-    .expanded {
-      display: block !important;
     }
   </style>
 </head>
@@ -271,6 +269,7 @@
             li.appendChild(folderNode);
             li.appendChild(subContainer);
             container.appendChild(li);
+
           } else {
             // File
             const li = document.createElement("li");
