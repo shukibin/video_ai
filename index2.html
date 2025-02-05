@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Camera Capture & Upload with Google Login</title>
+  <script src="https://sdk.amazonaws.com/js/aws-sdk-2.814.0.min.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; }
+    #cameraView { width: 100%; max-width: 400px; margin: auto; }
+    #status { margin-top: 10px; font-weight: bold; }
+    button { padding: 10px 15px; font-size: 16px; cursor: pointer; margin: 5px; }
+  </style>
+</head>
+<body>
+  <h1>Secure Image Capture & Upload</h1>
+  
+  <!-- Camera View -->
+  <video id="cameraView" autoplay playsinline></video>
+  
+  <!-- Google Login and Controls -->
+  <div id="g_id_onload"
+    data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+    data-callback="onGoogleLogin"
+    data-auto_prompt="false">
+  </div>
+  <div id="loginButton" class="g_id_signin" data-type="standard"></div>
+
+  <div id="controls" style="display: none;">
+    <button id="startButton">Start Capture</button>
+    <button id="stopButton" disabled>Stop Capture</button>
+    <div id="status">Status: Ready</div>
+  </div>
+
+  <script>
+    let userIdToken;
+    let s3;
+    let captureInterval;
+
+    const bucketName = "your-s3-bucket-name";
+    const region = "us-east-1";
+    const identityPoolId = "your-identity-pool-id";
+
+    const cameraView = document.getElementById("cameraView");
+    const startButton = document.getElementById("startButton");
+    const stopButton = document.getElementById("stopButton");
+    const statusDisplay = document.getElementById("status");
+
+    // Initialize AWS after successful login
+    function initializeAws(token) {
+      AWS.config.region = region;
+      AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+        IdentityPoolId: identityPoolId,
+        Logins: {
+          "accounts.google.com": token
+        }
+      });
+
+      AWS.config.credentials.get(() => {
+        s3 = new AWS.S3();
+        console.log("AWS initialized with temporary credentials.");
+        document.getElementById("controls").style.display = "block";
+      });
+    }
+
+    // Google login callback
+    function onGoogleLogin(response) {
+      userIdToken = response.credential;
+      statusDisplay.textContent = "Logged in successfully!";
+      initializeAws(userIdToken);
+    }
+
+    // Start the camera
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" }
+        });
+        cameraView.srcObject = stream;
+        statusDisplay.textContent = "Camera started";
+      } catch (error) {
+        statusDisplay.textContent = "Camera access denied: " + error;
+      }
+    }
+
+    // Capture and upload images
+    async function captureImage() {
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+      canvas.width = cameraView.videoWidth;
+      canvas.height = cameraView.videoHeight;
+      context.drawImage(cameraView, 0, 0, canvas.width, canvas.height);
+
+      const imageBlob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+      const fileName = generateFileName();
+
+      uploadToS3(imageBlob, fileName);
+    }
+
+    // Generate unique filename
+    function generateFileName() {
+      const now = new Date();
+      return `images/${now.getFullYear()}/${now.getMonth() + 1}/${now.getDate()}/${now.getHours()}/image_${now.toISOString().replace(/[:.]/g, "-")}.png`;
+    }
+
+    // Upload image directly to S3
+    async function uploadToS3(file, fileName) {
+      const params = {
+        Bucket: bucketName,
+        Key: fileName,
+        Body: file,
+        ContentType: "image/png",
+        Metadata: {
+          Timestamp: new Date().toISOString()
+        }
+      };
+
+      s3.upload(params, (err, data) => {
+        if (err) {
+          console.error("Upload failed:", err);
+          statusDisplay.textContent = "Error: Upload failed";
+        } else {
+          console.log("Successfully uploaded:", data);
+          statusDisplay.textContent = `Captured & Uploaded: ${fileName}`;
+        }
+      });
+    }
+
+    // Start capturing images every second
+    function startCapturing() {
+      startButton.disabled = true;
+      stopButton.disabled = false;
+      statusDisplay.textContent = "Capturing...";
+      captureInterval = setInterval(captureImage, 1000);
+    }
+
+    // Stop capturing images
+    function stopCapturing() {
+      clearInterval(captureInterval);
+      startButton.disabled = false;
+      stopButton.disabled = true;
+      statusDisplay.textContent = "Capture stopped";
+    }
+
+    // Event listeners
+    startButton.addEventListener("click", startCapturing);
+    stopButton.addEventListener("click", stopCapturing);
+
+    // Start camera on load
+    startCamera();
+  </script>
+</body>
+</html>
