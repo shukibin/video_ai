@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Authenticated Image Browser Tree View</title>
+  <title>Viewer App - Authenticated Image Browser</title>
 
   <!-- Google Sign-In -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -14,35 +14,75 @@
     body {
       font-family: Arial, sans-serif;
       margin: 0;
-      display: flex;
       height: 100vh;
-    }
-    #sidebar {
-      width: 30%;
-      background: #f4f4f4;
-      padding: 10px;
-      overflow-y: auto;
-    }
-    #content {
-      width: 70%;
-      padding: 10px;
-      text-align: center;
-    }
-    #image-preview {
-      max-width: 100%;
-      max-height: 80vh;
-      display: none;
-    }
-    .error-message {
-      color: red;
-      font-weight: bold;
-      white-space: pre-line;
+      display: flex;
+      flex-direction: column;
+      background-color: #f3f4f6;
     }
 
-    /* Treeview CSS from cssscript.com reference (minimal version) */
+    header {
+      background-color: #3b82f6;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+    }
+
+    .main-container {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    #sidebar {
+      width: 25%;
+      background: #fefefe;
+      padding: 15px;
+      overflow-y: auto;
+      border-right: 1px solid #e5e7eb;
+    }
+
+    #sidebar h3 {
+      margin-top: 0;
+    }
+
+    #content {
+      width: 75%;
+      padding: 1rem;
+      text-align: center;
+      overflow-y: auto;
+    }
+
+    /* Instructions box styling */
+    .instructions {
+      background-color: #e0f2fe;
+      border: 1px solid #bae6fd;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      color: #0369a1;
+    }
+
+    #image-preview {
+      max-width: 100%;
+      max-height: 70vh;
+      display: none;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      margin-top: 1rem;
+    }
+
+    .error-message {
+      color: #dc2626;
+      font-weight: bold;
+      white-space: pre-line;
+      margin-top: 1rem;
+    }
+
+    /* Treeview CSS (inspired by minimal version) */
     ul.tree {
       list-style-type: none;
       padding-left: 1em;
+      margin: 0;
     }
     ul.tree li {
       position: relative;
@@ -60,7 +100,7 @@
     }
     ul.tree label.file {
       font-weight: normal;
-      color: blue;
+      color: #1d4ed8;
       text-decoration: underline;
       cursor: pointer;
     }
@@ -77,21 +117,34 @@
   </style>
 </head>
 <body>
-  <!-- LEFT SIDEBAR -->
-  <div id="sidebar">
-    <h3>Image Explorer</h3>
-    <!-- Container for Google Sign-In Button -->
-    <div id="google-signin-button" style="margin-bottom: 15px;"></div>
+  <header>
+    <h1>Viewer App - Authenticated Image Browser</h1>
+  </header>
 
-    <!-- Tree structure and error logs -->
-    <ul id="folder-structure" class="tree"></ul>
-    <div id="error-log" class="error-message"></div>
-  </div>
+  <div class="main-container">
+    <!-- LEFT SIDEBAR -->
+    <div id="sidebar">
+      <h3>OpenAI Operator Instructions</h3>
+      <div class="instructions">
+        <p>1. Sign in using the button below to authenticate.</p>
+        <p>2. Once signed in, the S3 objects will appear in the tree view.</p>
+        <p>3. Click a folder name to expand its contents.</p>
+        <p>4. Click any file name to load the image preview on the right.</p>
+      </div>
 
-  <!-- RIGHT CONTENT AREA -->
-  <div id="content">
-    <h3>Image Preview</h3>
-    <img id="image-preview" alt="Image Preview" />
+      <!-- Google Sign-In Button -->
+      <div id="google-signin-button" style="margin-bottom: 15px;"></div>
+
+      <!-- Tree structure and error logs -->
+      <ul id="folder-structure" class="tree"></ul>
+      <div id="error-log" class="error-message"></div>
+    </div>
+
+    <!-- RIGHT CONTENT AREA -->
+    <div id="content">
+      <h2>Image Preview</h2>
+      <img id="image-preview" alt="Image Preview" />
+    </div>
   </div>
 
   <script>
@@ -180,10 +233,10 @@
 
     // Generate a unique ID for each checkbox
     function generateUniqueId() {
-      return 'node-' + Math.random().toString(36).substr(2, 9);
+      return "node-" + Math.random().toString(36).substr(2, 9);
     }
 
-    // Recursively renders the folder/file hierarchy using the treeview with checkboxes
+    // Recursively renders the folder/file hierarchy
     function renderFolderTree(structure, container) {
       try {
         for (let key in structure) {
@@ -227,7 +280,6 @@
             li.appendChild(fileCheckbox);
             li.appendChild(fileLabel);
           }
-
           container.appendChild(li);
         }
       } catch (err) {
@@ -238,7 +290,7 @@
     // Retrieve image data from S3 using getObject and display in <img>
     function fetchAndPreviewImage(fileKey) {
       try {
-        // Attempt to get contentType from the key if possible, fallback to image/png.
+        // Fallback to 'image/png' if no content type
         const defaultContentType = "image/png";
 
         s3Client.getObject({ Bucket: bucketName, Key: fileKey }, (err, data) => {
