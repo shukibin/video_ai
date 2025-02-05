@@ -13,67 +13,47 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 2em;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+        }
+        #sidebar {
+            width: 30%;
+            background: #f4f4f4;
+            padding: 10px;
+            overflow-y: auto;
+        }
+        #content {
+            width: 70%;
+            padding: 10px;
+            text-align: center;
         }
         #image-preview {
             max-width: 100%;
-            max-height: 400px;
-            margin-top: 1em;
+            max-height: 80vh;
+            display: none;
         }
-        .dropdown {
-            margin: 10px 0;
-        }
-        button {
-            padding: 10px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
+        .folder {
+            margin-left: 10px;
             cursor: pointer;
+            font-weight: bold;
+        }
+        .file {
+            margin-left: 20px;
+            cursor: pointer;
+            color: blue;
+            text-decoration: underline;
         }
     </style>
 </head>
 <body>
-    <h1>Image Browser for OpenAI Operator</h1>
-    <p>Authenticate to access the image data and use the dropdowns to select specific images from S3.</p>
-
-    <div id="auth-section">
-        <button id="signin-button">Sign in with Google</button>
-        <p id="signin-status"></p>
+    <div id="sidebar">
+        <h3>Image Explorer</h3>
+        <div id="folder-structure"></div>
     </div>
-
-    <div id="image-browser" style="display:none;">
-        <div>
-            <label for="device-dropdown">Device ID:</label>
-            <select id="device-dropdown" class="dropdown"></select>
-        </div>
-
-        <div>
-            <label for="year-dropdown">Year:</label>
-            <select id="year-dropdown" class="dropdown"></select>
-        </div>
-
-        <div>
-            <label for="month-dropdown">Month:</label>
-            <select id="month-dropdown" class="dropdown"></select>
-        </div>
-
-        <div>
-            <label for="day-dropdown">Day:</label>
-            <select id="day-dropdown" class="dropdown"></select>
-        </div>
-
-        <div>
-            <label for="hour-dropdown">Hour:</label>
-            <select id="hour-dropdown" class="dropdown"></select>
-        </div>
-
-        <div>
-            <ul id="image-list"></ul>
-        </div>
-
-        <div>
-            <img id="image-preview" alt="Image Preview" />
-        </div>
+    <div id="content">
+        <h3>Image Preview</h3>
+        <img id="image-preview" alt="Image Preview" />
     </div>
 
     <script>
@@ -100,58 +80,64 @@
                 } else {
                     console.log("AWS Credentials obtained successfully.");
                     s3Client = new AWS.S3({ apiVersion: '2006-03-01' });
-                    loadImageDropdowns();
+                    loadFolderStructure();
                 }
             });
         }
 
-        function loadImageDropdowns() {
+        function loadFolderStructure() {
             s3Client.listObjectsV2({ Bucket: bucketName }, function (err, data) {
                 if (err) {
                     console.error("Error listing S3 objects:", err);
                     return;
                 }
+                
+                const folderStructure = {};
+                data.Contents.forEach(obj => {
+                    const parts = obj.Key.split('/');
+                    let currentLevel = folderStructure;
+                    parts.forEach((part, index) => {
+                        if (index === parts.length - 1) {
+                            currentLevel[part] = obj.Key; // Store full path for files
+                        } else {
+                            if (!currentLevel[part]) {
+                                currentLevel[part] = {};
+                            }
+                            currentLevel = currentLevel[part];
+                        }
+                    });
+                });
 
-                const objects = data.Contents.map(obj => obj.Key);
-                populateDropdowns(objects);
+                renderFolderTree(folderStructure, document.getElementById("folder-structure"));
             });
         }
 
-        function populateDropdowns(objects) {
-            const deviceSet = new Set();
-            const yearSet = new Set();
-            const monthSet = new Set();
-            const daySet = new Set();
-            const hourSet = new Set();
-
-            objects.forEach(key => {
-                const parts = key.split('/');
-                if (parts.length === 6) {
-                    const [device, year, month, day, hour] = parts;
-                    deviceSet.add(device);
-                    yearSet.add(year);
-                    monthSet.add(month);
-                    daySet.add(day);
-                    hourSet.add(hour);
+        function renderFolderTree(structure, container) {
+            for (let key in structure) {
+                const item = document.createElement("div");
+                if (typeof structure[key] === "object") {
+                    item.textContent = key;
+                    item.classList.add("folder");
+                    const subContainer = document.createElement("div");
+                    subContainer.style.display = "none";
+                    item.addEventListener("click", () => {
+                        subContainer.style.display = subContainer.style.display === "none" ? "block" : "none";
+                    });
+                    renderFolderTree(structure[key], subContainer);
+                    item.appendChild(subContainer);
+                } else {
+                    item.textContent = key;
+                    item.classList.add("file");
+                    item.addEventListener("click", () => previewImage(structure[key]));
                 }
-            });
-
-            populateDropdown('device-dropdown', deviceSet);
-            populateDropdown('year-dropdown', yearSet);
-            populateDropdown('month-dropdown', monthSet);
-            populateDropdown('day-dropdown', daySet);
-            populateDropdown('hour-dropdown', hourSet);
+                container.appendChild(item);
+            }
         }
 
-        function populateDropdown(id, values) {
-            const dropdown = document.getElementById(id);
-            dropdown.innerHTML = '<option value="">Select...</option>';
-            values.forEach(value => {
-                const option = document.createElement('option');
-                option.value = value;
-                option.textContent = value;
-                dropdown.appendChild(option);
-            });
+        function previewImage(filePath) {
+            const imageUrl = `https://${bucketName}.s3.amazonaws.com/${filePath}`;
+            document.getElementById("image-preview").src = imageUrl;
+            document.getElementById("image-preview").style.display = "block";
         }
 
         // Google Sign-In Initialization
@@ -161,18 +147,13 @@
                 callback: handleCredentialResponse
             });
             google.accounts.id.renderButton(
-                document.getElementById("signin-button"),
+                document.getElementById("sidebar"),
                 { theme: "outline", size: "large" }
             );
         };
 
         function handleCredentialResponse(response) {
             console.log("Google Sign-In Successful:", response);
-            document.getElementById('signin-status').textContent = "Signed in successfully.";
-            document.getElementById('auth-section').style.display = 'none';
-            document.getElementById('image-browser').style.display = 'block';
-
-            // Pass the ID token to AWS Cognito authentication
             initializeAwsS3(response.credential);
         }
     </script>
