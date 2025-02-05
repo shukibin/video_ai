@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>OpenAI Operator Task Dashboard</title>
+    <title>OpenAI Operator Image Dashboard</title>
     <style>
       body {
         font-family: 'Arial', sans-serif;
@@ -20,144 +20,176 @@
         text-align: center;
         border-radius: 8px;
       }
-      .task-section {
-        margin-top: 20px;
-        background-color: #ffffff;
-        padding: 15px;
-        border-radius: 8px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-      }
-      .task-section h2 {
-        color: #004aad;
-      }
       .instruction-box {
         padding: 15px;
         background: #f1f1f1;
         border-radius: 8px;
-        margin: 10px 0;
+        margin: 20px 0;
       }
-      .gallery {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 15px;
+      .image-browser {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         margin-top: 20px;
       }
-      .image-card {
-        background: white;
-        border-radius: 8px;
-        overflow: hidden;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      .image-preview {
+        margin-top: 20px;
+        text-align: center;
       }
-      .image-card img {
-        width: 100%;
-        height: auto;
-        display: block;
+      .dropdown {
+        margin: 10px 0;
       }
-      .task-form label {
-        display: block;
-        margin-bottom: 8px;
-        font-weight: bold;
-      }
-      .task-form textarea {
-        width: 100%;
-        height: 80px;
-        margin-bottom: 10px;
-        border-radius: 4px;
+      select {
         padding: 10px;
+        margin-right: 10px;
+        border-radius: 4px;
         border: 1px solid #ccc;
       }
-      button {
-        background-color: #004aad;
-        color: white;
-        border: none;
-        padding: 10px 15px;
-        border-radius: 4px;
-        cursor: pointer;
+      .image-list a {
+        display: block;
+        color: #004aad;
+        text-decoration: none;
+        margin: 5px 0;
       }
-      button:hover {
-        background-color: #00318c;
+      .image-list a:hover {
+        text-decoration: underline;
       }
     </style>
   </head>
   <body>
     <header>
-      <h1>OpenAI Operator Task Dashboard</h1>
+      <h1>OpenAI Operator Image Dashboard</h1>
     </header>
 
-    <section class="task-section">
+    <section class="instruction-box">
       <h2>Instructions for OpenAI Operator</h2>
-      <div class="instruction-box">
-        <p>
-          1. Navigate to the following S3 bucket location to fetch images:
-          <strong>https://images-947384912039.s3.amazonaws.com/images/</strong>
-        </p>
-        <p>
-          2. The images are organized by <code>year/month/day/hour</code>. Use a file
-          browser or automated script to retrieve and process them.
-        </p>
-        <p>
-          3. Image file names follow the pattern:
-          <code>image_{timestamp}.png</code>. Metadata is embedded in each image
-          file.
-        </p>
-        <p>
-          4. Perform tasks based on the user instructions provided below.
-        </p>
+      <p>
+        1. Log in using your Google account to access the image data.
+      </p>
+      <p>
+        2. Use the dropdown menus to select the device, year, month, day, and hour.
+        This will list all available images for the selected time period.
+      </p>
+      <p>
+        3. Click on any image link to preview it directly in the browser.
+      </p>
+    </section>
+
+    <section class="image-browser">
+      <h2>Image Browser</h2>
+      <div class="dropdown">
+        <label for="device-select">Device ID:</label>
+        <select id="device-select"></select>
+
+        <label for="year-select">Year:</label>
+        <select id="year-select"></select>
+
+        <label for="month-select">Month:</label>
+        <select id="month-select"></select>
+
+        <label for="day-select">Day:</label>
+        <select id="day-select"></select>
+
+        <label for="hour-select">Hour:</label>
+        <select id="hour-select"></select>
       </div>
 
-      <h2>Task Instructions</h2>
-      <form class="task-form">
-        <label for="task-input">User Instructions:</label>
-        <textarea id="task-input" placeholder="Enter tasks here for OpenAI Operator..."></textarea>
-        <button type="button" id="submit-task">Submit Task</button>
-      </form>
+      <div class="image-list" id="image-list"></div>
 
-      <div id="task-display"></div>
+      <div class="image-preview" id="image-preview">
+        <h3>Selected Image Preview</h3>
+        <img id="preview-img" src="" alt="No image selected" style="max-width: 100%; border: 1px solid #ccc;" />
+      </div>
     </section>
 
-    <section class="task-section">
-      <h2>Image Gallery from S3 Bucket</h2>
-      <div id="gallery" class="gallery"></div>
-    </section>
+    <script src="https://apis.google.com/js/platform.js" async defer></script>
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.814.0.min.js"></script>
 
     <script>
       const bucketUrl = "https://images-947384912039.s3.amazonaws.com/images/";
-      const gallery = document.getElementById("gallery");
-      const taskDisplay = document.getElementById("task-display");
-      const submitTaskButton = document.getElementById("submit-task");
-      const taskInput = document.getElementById("task-input");
+      const identityPoolId = "us-east-1:057eb5c9-a520-4373-80c6-7d43fe3673cb";
+      const region = "us-east-1";
+      const bucketName = "images-947384912039";
 
-      // Dummy data for demonstration purposes
-      const sampleImages = [
-        "2025/02/05/01/image_2025-02-05T01-31-15-288Z.png",
-        "2025/02/05/01/image_2025-02-05T01-35-20-500Z.png",
-      ];
+      AWS.config.region = region;
+      AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+        IdentityPoolId: identityPoolId,
+      });
 
-      // Display sample images in the gallery
-      function loadImages() {
-        gallery.innerHTML = ""; // Clear existing images
-        sampleImages.forEach((path) => {
-          const imgUrl = `${bucketUrl}${path}`;
-          const card = document.createElement("div");
-          card.classList.add("image-card");
-          card.innerHTML = `<img src="${imgUrl}" alt="S3 Image" />`;
-          gallery.appendChild(card);
+      // Dropdown elements
+      const deviceSelect = document.getElementById("device-select");
+      const yearSelect = document.getElementById("year-select");
+      const monthSelect = document.getElementById("month-select");
+      const daySelect = document.getElementById("day-select");
+      const hourSelect = document.getElementById("hour-select");
+      const imageList = document.getElementById("image-list");
+      const previewImg = document.getElementById("preview-img");
+
+      function populateDropdown(dropdown, values) {
+        dropdown.innerHTML = "<option value=''>Select</option>";
+        values.forEach((value) => {
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = value;
+          dropdown.appendChild(option);
         });
       }
 
-      // Handle task submission
-      submitTaskButton.addEventListener("click", () => {
-        const taskText = taskInput.value.trim();
-        if (taskText) {
-          taskDisplay.innerHTML = `<p><strong>Task Submitted:</strong> ${taskText}</p>`;
-          taskInput.value = "";
-        } else {
-          alert("Please enter a task before submitting.");
-        }
-      });
+      function fetchAndListImages() {
+        // Dummy sample data; replace with S3 listing logic.
+        const sampleImages = [
+          "2025/02/05/01/image_2025-02-05T01-31-15-288Z.png",
+          "2025/02/05/01/image_2025-02-05T01-35-20-500Z.png",
+        ];
 
-      // Load the initial gallery
-      loadImages();
+        imageList.innerHTML = "";
+        sampleImages.forEach((path) => {
+          const imgUrl = `${bucketUrl}${path}`;
+          const link = document.createElement("a");
+          link.href = "#";
+          link.textContent = path;
+          link.addEventListener("click", () => {
+            previewImg.src = imgUrl;
+          });
+          imageList.appendChild(link);
+        });
+      }
+
+      // Populate dropdowns with sample data
+      populateDropdown(deviceSelect, ["device1", "device2"]);
+      populateDropdown(yearSelect, ["2025"]);
+      populateDropdown(monthSelect, ["01", "02"]);
+      populateDropdown(daySelect, ["05"]);
+      populateDropdown(hourSelect, ["01", "02"]);
+
+      // Fetch images when dropdowns are selected (simulated here)
+      deviceSelect.addEventListener("change", fetchAndListImages);
+
+      // Initialize Google Sign-In
+      function initGoogleSignIn() {
+        gapi.load('auth2', function() {
+          const auth2 = gapi.auth2.init({
+            client_id: '859878185380-o0g59tkq13jm1dhqbt4eb4a4bmgqgjsr.apps.googleusercontent.com',
+          });
+
+          auth2.isSignedIn.listen(function(isSignedIn) {
+            if (isSignedIn) {
+              const user = auth2.currentUser.get().getBasicProfile();
+              alert(`Welcome, ${user.getName()}! You are now signed in.`);
+            } else {
+              alert("Please sign in to access the images.");
+            }
+          });
+
+          document.body.insertAdjacentHTML(
+            'beforeend',
+            '<div class="g-signin2" data-onsuccess="onSignIn"></div>'
+          );
+        });
+      }
+
+      initGoogleSignIn();
     </script>
   </body>
 </html>
