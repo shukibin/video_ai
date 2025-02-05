@@ -10,7 +10,8 @@
     <title>Viewer App</title>
 
     <!-- Google OAuth SDK -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://accounts.google.com/gsi/client" async defer onload="initializeGoogleOAuth()"></script>
+
     <!-- AWS SDK -->
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1319.0.min.js"></script>
 </head>
@@ -27,25 +28,27 @@
     </div>
 
     <script>
-        // Step 1: Initialize Google OAuth
-        google.accounts.id.initialize({
-            client_id: '859878185380-o0g59tkq13jm1dhqbt4eb4a4bmgqgjsr.apps.googleusercontent.com', // Replace with the correct Google OAuth Client ID
-            callback: handleCredentialResponse
-        });
+        // Initialize Google OAuth once the script is loaded
+        function initializeGoogleOAuth() {
+            google.accounts.id.initialize({
+                client_id: 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com', // Replace with the correct Google OAuth Client ID
+                callback: handleCredentialResponse
+            });
 
-        google.accounts.id.renderButton(
-            document.getElementById('google-signin'),
-            { theme: 'outline', size: 'large' }
-        );
+            google.accounts.id.renderButton(
+                document.getElementById('google-signin'),
+                { theme: 'outline', size: 'large' }
+            );
+        }
 
-        // Step 2: Handle the Credential Response from Google
+        // Handle the Credential Response from Google
         function handleCredentialResponse(response) {
             console.log("Credential response received:", response);
 
             // Extract the ID token from the response
             const idToken = response.credential;
 
-            // Step 3: Initialize AWS SDK with Google credentials
+            // Initialize AWS SDK with Google credentials
             AWS.config.update({
                 region: 'us-east-1', // Your AWS region
                 credentials: new AWS.CognitoIdentityCredentials({
@@ -56,7 +59,7 @@
                 })
             });
 
-            // Step 4: Get AWS credentials using the Cognito Identity Pool
+            // Get AWS credentials using the Cognito Identity Pool
             AWS.config.credentials.get(function() {
                 if (AWS.config.credentials) {
                     console.log("Successfully authenticated with AWS");
@@ -66,12 +69,12 @@
                 }
             });
 
-            // Step 5: Hide the sign-in section and show the image browser
+            // Hide the sign-in section and show the image browser
             document.getElementById('auth-section').style.display = 'none';
             document.getElementById('image-browser').style.display = 'block';
         }
 
-        // Step 6: Load S3 Image Dropdowns (You can replace this with your actual code to load images)
+        // Load S3 Image Dropdowns (You can replace this with your actual code to load images)
         function loadImageDropdowns() {
             console.log('Loading image dropdowns from S3...');
             // Make sure you add the appropriate code to interact with AWS services (like S3)
