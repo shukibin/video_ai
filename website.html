@@ -30,7 +30,7 @@
     <script>
         // Step 1: Initialize Google OAuth
         google.accounts.id.initialize({
-            client_id: 'YOUR_GOOGLE_CLIENT_ID', // Replace with your Google Client ID
+            client_id: '777572259375-3kqjs98smu7de4vgc4s0m8ckfmf4scs2.apps.googleusercontent.com', // Your Google OAuth Client ID
             callback: handleCredentialResponse
         });
 
@@ -50,7 +50,7 @@
             AWS.config.update({
                 region: 'us-east-1', // Your AWS region
                 credentials: new AWS.CognitoIdentityCredentials({
-                    IdentityPoolId: 'us-east-1:example-pool-id', // Replace with your Identity Pool ID
+                    IdentityPoolId: 'us-east-1:9677a92e-d3ff-49f0-ae95-bbb80a90f43a', // Your AWS Cognito Identity Pool ID
                     Logins: {
                         'accounts.google.com': idToken // Use the Google login token for authentication
                     }
