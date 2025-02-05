@@ -105,18 +105,15 @@
   <div class="main-container">
     <!-- LEFT SIDEBAR -->
     <div id="sidebar">
-      <h3>OpenAI Operator Instructions</h3>
+      <h3>Instructions</h3>
       <div class="instructions">
         <p>1. Sign in using the button below to authenticate (Google).</p>
-        <p>2. Once signed in, the camera feed will appear on the right.</p>
-        <p>3. Use <strong>Start Capture</strong> to capture images every second.</p>
-        <p>4. Click <strong>Stop Capture</strong> to stop uploading images.</p>
-        <p>5. Images are stored in S3 under <em>deviceId/year/month/day/hour</em>.</p>
+        <p>2. Once signed in, use <strong>Start Capture</strong> to capture images every second. You will see the upload successful message and the image counter updates.</p>
+        <p>3. Click <strong>Stop Capture</strong> to stop uploading images.</p>
       </div>
 
       <!-- Google Sign-In Button -->
       <div id="google-signin-button" style="margin-bottom: 15px;"></div>
-
       <div id="error-log" class="error-message"></div>
     </div>
 
@@ -132,18 +129,24 @@
   </div>
 
   <script>
-    let deviceId = "myCamera123"; // Hard-coded for demonstration
-    let s3Client;
-    let captureInterval;
+    // AWS + Google Sign-In
     const bucketName = "images-947384912039";
     const region = "us-east-1";
     const identityPoolId = "us-east-1:057eb5c9-a520-4373-80c6-7d43fe3673cb";
 
+    // Elements
     const cameraView = document.getElementById("camera-view");
     const startButton = document.getElementById("start-capture");
     const stopButton = document.getElementById("stop-capture");
     const statusDisplay = document.getElementById("status");
     const errorLog = document.getElementById("error-log");
+
+    // We'll fill these after sign-in and device detection
+    let s3Client;
+    let captureInterval;
+    let uploadedImagesCount = 0;
+    let deviceId = null;   // Real device ID from enumerating media devices
+    let userName = null;   // From Google Sign-In
 
     /* Logs errors to console and #error-log */
     function logError(message, err) {
@@ -153,9 +156,38 @@
       }
     }
 
+    /* Parse the Google ID token to extract name/username */
+    function parseGoogleIdToken(jwt) {
+      try {
+        // Basic parse of the ID token
+        const payload = jwt.split('.')[1];
+        const decoded = JSON.parse(atob(payload));
+        // Typically, 'name' or 'email' is available. Adjust if your ID token differs.
+        return decoded.name || decoded.email || "UnknownUser";
+      } catch (err) {
+        logError("Error parsing Google ID token", err);
+        return "UnknownUser";
+      }
+    }
+
+    /* Retrieve the first available camera's deviceId */
+    async function detectDeviceId() {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoInput = devices.find(d => d.kind === 'videoinput');
+        deviceId = videoInput ? videoInput.deviceId : "NoCameraID";
+        console.log("Detected deviceId:", deviceId);
+      } catch (err) {
+        logError("Error detecting device ID", err);
+        deviceId = "NoCameraID";
+      }
+    }
+
     /* Initialize AWS after Google Sign-In */
     function initializeAwsS3(idToken) {
       try {
+        userName = parseGoogleIdToken(idToken);
+
         AWS.config.update({
           region: region,
           credentials: new AWS.CognitoIdentityCredentials({
@@ -185,7 +217,11 @@
     /* Set up the camera (video feed) */
     async function startCamera() {
       try {
+        // Wait for device detection, so we have deviceId
+        await detectDeviceId();
+
         const stream = await navigator.mediaDevices.getUserMedia({
+          // facingMode 'environment' tries to use the rear camera on mobile
           video: { facingMode: "environment" }
         });
         cameraView.srcObject = stream;
@@ -195,11 +231,12 @@
       }
     }
 
-    /* Capture and upload images every second */
+    /* Start capturing images every second */
     function startCapture() {
       statusDisplay.textContent = "Status: Capturing...";
       startButton.disabled = true;
       stopButton.disabled = false;
+      uploadedImagesCount = 0; // Reset image counter
 
       captureInterval = setInterval(async () => {
         try {
@@ -220,6 +257,7 @@
       }, 1000);
     }
 
+    /* Stop capturing images */
     function stopCapture() {
       clearInterval(captureInterval);
       statusDisplay.textContent = "Status: Capture Stopped";
@@ -227,24 +265,25 @@
       stopButton.disabled = true;
     }
 
+    /* Format the file name: e.g. userName_deviceId_timestamp.png */
     function generateFileName() {
       const now = new Date();
       const dateStr = now.toISOString().replace(/[:.]/g, "-");
-      // deviceId in the filename
-      return `${deviceId}_${dateStr}.png`;
+      return `${userName}_${deviceId}_${dateStr}.png`;
     }
 
+    /* Folder hierarchy: username/deviceId/year/month/day/hour/filename */
     function generateFileKey(fileName) {
-      // device ID in folder structure: deviceId/year/month/day/hour
       const now = new Date();
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, "0");
       const day = String(now.getDate()).padStart(2, "0");
       const hour = String(now.getHours()).padStart(2, "0");
 
-      return `${deviceId}/${year}/${month}/${day}/${hour}/${fileName}`;
+      return `${userName}/${deviceId}/${year}/${month}/${day}/${hour}/${fileName}`;
     }
 
+    /* Upload the blob to S3 */
     function uploadToS3(blob, key) {
       if (!s3Client) {
         logError("S3 Client not initialized", new Error("Not Authenticated?"));
@@ -261,17 +300,19 @@
         if (err) {
           logError("Error uploading to S3", err);
         } else {
+          uploadedImagesCount++;
           console.log("Successfully uploaded:", data.Location);
+          statusDisplay.textContent = `Status: Uploaded #${uploadedImagesCount}`;
         }
       });
     }
 
     /* Google Sign-In initialization */
-    window.onload = function () {
-      // Start the camera immediately (no authentication needed just to see the local feed)
-      startCamera();
+    window.onload = async function () {
+      // Attempt to start camera feed
+      await startCamera();
 
-      // Set up google sign in
+      // Google Sign-In
       google.accounts.id.initialize({
         client_id: "859878185380-o0g59tkq13jm1dhqbt4eb4a4bmgqgjsr.apps.googleusercontent.com",
         callback: handleCredentialResponse
@@ -281,12 +322,12 @@
         { theme: "outline", size: "large" }
       );
 
-      // Event listeners for Start/Stop
+      // Event listeners
       startButton.addEventListener("click", startCapture);
       stopButton.addEventListener("click", stopCapture);
     };
 
-    /* Callback after Google Sign-In is successful */
+    /* Parse token, init AWS, etc. */
     function handleCredentialResponse(response) {
       console.log("Google Sign-In Successful:", response);
       statusDisplay.textContent = "Status: Authenticating with AWS...";
