@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin">
+    <meta http-equiv="Cross-Origin-Resource-Policy" content="same-origin">
     <title>Image Browser for OpenAI Operator</title>
 
     <!-- Google Sign-In -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-
-    <!-- AWS SDK -->
-    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1319.0.min.js"></script>
 
     <style>
         body {
@@ -89,13 +88,13 @@
                 credentials: new AWS.CognitoIdentityCredentials({
                     IdentityPoolId: identityPoolId,
                     Logins: {
-                        'accounts.google.com': credentials.id_token
+                        'accounts.google.com': credentials.id_token // Pass the Google ID token
                     }
                 })
             });
 
             s3Client = new AWS.S3({ apiVersion: '2006-03-01' });
-            loadImageDropdowns();
+            loadImageDropdowns(); // Proceed with loading image dropdowns after initializing AWS S3
         }
 
         function loadImageDropdowns() {
@@ -186,7 +185,7 @@
         // Google Sign-In Initialization
         window.onload = function () {
             google.accounts.id.initialize({
-                client_id: "859878185380-o0g59tkq13jm1dhqbt4eb4a4bmgqgjsr.apps.googleusercontent.com",
+                client_id: "859878185380-o0g59tkq13jm1dhqbt4eb4a4bmgqgjsr.apps.googleusercontent.com", // Make sure this matches your client ID
                 callback: handleCredentialResponse
             });
             google.accounts.id.renderButton(
@@ -199,7 +198,7 @@
             document.getElementById('signin-status').textContent = "Signed in successfully.";
             document.getElementById('auth-section').style.display = 'none';
             document.getElementById('image-browser').style.display = 'block';
-            initializeAwsS3(response.credential);
+            initializeAwsS3(response.credential); // Initialize AWS with the Google token
         }
     </script>
 </body>
