@@ -11,7 +11,6 @@
     #cameraView { width: 100%; max-width: 400px; margin: auto; }
     #status { margin-top: 10px; font-weight: bold; }
     button { padding: 10px 15px; font-size: 16px; cursor: pointer; margin: 5px; }
-    #errorMessage { color: red; margin-top: 10px; white-space: pre-line; }
   </style>
 </head>
 <body>
@@ -34,22 +33,19 @@
     <div id="status">Status: Ready</div>
   </div>
 
-  <div id="errorMessage"></div> <!-- For displaying detailed error messages -->
-
   <script>
     let userIdToken;
     let s3;
     let captureInterval;
 
-    const bucketName = "images-947384912039"; // Updated bucket name
-    const region = "us-east-1"; // Region for the S3 bucket
-    const identityPoolId = "us-east-1:057eb5c9-a520-4373-80c6-7d43fe3673cb"; // Cognito Identity Pool ID
+    const bucketName = "images-947384912039/*";
+    const region = "us-east-1";
+    const identityPoolId = "us-east-1:057eb5c9-a520-4373-80c6-7d43fe3673cb";
 
     const cameraView = document.getElementById("cameraView");
     const startButton = document.getElementById("startButton");
     const stopButton = document.getElementById("stopButton");
     const statusDisplay = document.getElementById("status");
-    const errorDisplay = document.getElementById("errorMessage");
 
     // Initialize AWS after successful login
     function initializeAws(token) {
@@ -84,26 +80,22 @@
         cameraView.srcObject = stream;
         statusDisplay.textContent = "Camera started";
       } catch (error) {
-        displayError('Camera Error', error);
+        statusDisplay.textContent = "Camera access denied: " + error;
       }
     }
 
     // Capture and upload images
     async function captureImage() {
-      try {
-        const canvas = document.createElement("canvas");
-        const context = canvas.getContext("2d");
-        canvas.width = cameraView.videoWidth;
-        canvas.height = cameraView.videoHeight;
-        context.drawImage(cameraView, 0, 0, canvas.width, canvas.height);
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+      canvas.width = cameraView.videoWidth;
+      canvas.height = cameraView.videoHeight;
+      context.drawImage(cameraView, 0, 0, canvas.width, canvas.height);
 
-        const imageBlob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
-        const fileName = generateFileName();
+      const imageBlob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+      const fileName = generateFileName();
 
-        uploadToS3(imageBlob, fileName);
-      } catch (error) {
-        displayError('Capture Image Error', error);
-      }
+      uploadToS3(imageBlob, fileName);
     }
 
     // Generate unique filename
@@ -114,36 +106,30 @@
 
     // Upload image directly to S3
     async function uploadToS3(file, fileName) {
-      try {
-        const params = {
-          Bucket: bucketName,
-          Key: fileName,
-          Body: file,
-          ContentType: "image/png",
-          Metadata: {
-            Timestamp: new Date().toISOString()
-          }
-        };
+        try {
+            const params = {
+            Bucket: bucketName,
+            Key: fileName,
+            Body: file,
+            ContentType: "image/png",
+            Metadata: {
+                Timestamp: new Date().toISOString()
+            }
+            };
 
-        s3.upload(params, (err, data) => {
-          if (err) {
-            displayError('S3 Upload Error', err);
-          } else {
-            console.log("Successfully uploaded:", data);
-            statusDisplay.textContent = `Captured & Uploaded: ${fileName}`;
-          }
-        });
-      } catch (err) {
-        displayError('Upload Error', err);
-      }
-    }
-
-    // Display detailed error information
-    function displayError(type, error) {
-      const errorMsg = `Error Type: ${type}\nError Message: ${error.message || error}\nStack Trace: ${error.stack || 'N/A'}`;
-      console.error(errorMsg);
-      errorDisplay.textContent = errorMsg;
-      statusDisplay.textContent = 'An error occurred. Check the debug information.';
+            s3.upload(params, (err, data) => {
+            if (err) {
+                console.error("Upload error:", err);
+                displayError('S3 Upload Error', err);
+            } else {
+                console.log("Successfully uploaded:", data);
+                statusDisplay.textContent = `Captured & Uploaded: ${fileName}`;
+            }
+            });
+        } catch (err) {
+            console.error("Error during upload:", err);
+            displayError('Upload Error', err);
+        }
     }
 
     // Start capturing images every second
