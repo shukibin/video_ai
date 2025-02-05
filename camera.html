@@ -141,14 +141,12 @@
     const statusDisplay = document.getElementById("status");
     const errorLog = document.getElementById("error-log");
 
-    // We'll fill these after sign-in and device detection
     let s3Client;
     let captureInterval;
     let uploadedImagesCount = 0;
-    let deviceId = null;   // Real device ID from enumerating media devices
-    let userEmail = null;  // From Google Sign-In
+    let deviceId = null;
+    let userEmail = null;
 
-    /* Logs errors to console and #error-log */
     function logError(message, err) {
       console.error(message, err);
       if (errorLog) {
@@ -156,13 +154,10 @@
       }
     }
 
-    /* Parse the Google ID token to extract email */
     function parseGoogleIdToken(jwt) {
       try {
-        // Basic parse of the ID token
         const payload = jwt.split('.')[1];
         const decoded = JSON.parse(atob(payload));
-        // We'll use the 'email' field
         return decoded.email || "unknown@example.com";
       } catch (err) {
         logError("Error parsing Google ID token", err);
@@ -170,7 +165,7 @@
       }
     }
 
-    /* Retrieve the first available camera's deviceId */
+    // Attempt to get the first video input device ID
     async function detectDeviceId() {
       try {
         const devices = await navigator.mediaDevices.enumerateDevices();
@@ -183,7 +178,6 @@
       }
     }
 
-    /* Initialize AWS after Google Sign-In */
     function initializeAwsS3(idToken) {
       try {
         userEmail = parseGoogleIdToken(idToken);
@@ -214,33 +208,46 @@
       }
     }
 
-    /* Set up the camera (video feed) */
+    // Gracefully request maximum feasible resolution, fallback if it fails
     async function startCamera() {
       try {
-        // Wait for device detection, so we have deviceId
         await detectDeviceId();
 
-        const stream = await navigator.mediaDevices.getUserMedia({
+        const constraintsMax = {
           video: {
-            // Attempt maximum resolution
-            width: { ideal: 9999 },
-            height: { ideal: 9999 },
-            facingMode: "environment"
+            width:  { ideal: 4000, max: 9999 }, // request up to ~4K
+            height: { ideal: 4000, max: 9999 },
+            facingMode: { ideal: "environment" }
           }
-        });
+        };
+
+        let stream;
+
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(constraintsMax);
+        } catch (err) {
+          console.warn("Max resolution request failed, falling back to default constraints...", err);
+          // fallback to simpler constraints if max fails
+          stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        }
+
         cameraView.srcObject = stream;
+
+        // Wait briefly for metadata to load so we can log final resolution
+        await new Promise(resolve => setTimeout(resolve, 500));
+        console.log("Actual video resolution:", cameraView.videoWidth, "x", cameraView.videoHeight);
+
       } catch (err) {
         logError("Error accessing camera", err);
         statusDisplay.textContent = "Status: Camera access denied.";
       }
     }
 
-    /* Start capturing images every second */
     function startCapture() {
       statusDisplay.textContent = "Status: Capturing...";
       startButton.disabled = true;
       stopButton.disabled = false;
-      uploadedImagesCount = 0; // Reset image counter
+      uploadedImagesCount = 0;
 
       captureInterval = setInterval(async () => {
         try {
@@ -248,6 +255,7 @@
           const context = canvas.getContext("2d");
           canvas.width = cameraView.videoWidth;
           canvas.height = cameraView.videoHeight;
+
           context.drawImage(cameraView, 0, 0, canvas.width, canvas.height);
 
           const imageBlob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
@@ -261,7 +269,6 @@
       }, 1000);
     }
 
-    /* Stop capturing images */
     function stopCapture() {
       clearInterval(captureInterval);
       statusDisplay.textContent = "Status: Capture Stopped";
@@ -269,14 +276,12 @@
       stopButton.disabled = true;
     }
 
-    /* Format the file name: e.g. userEmail_deviceId_timestamp.png */
     function generateFileName() {
       const now = new Date();
       const dateStr = now.toISOString().replace(/[:.]/g, "-");
       return `${userEmail}_${deviceId}_${dateStr}.png`;
     }
 
-    /* Folder hierarchy: email/device_id/year/month/day/hour/filename */
     function generateFileKey(fileName) {
       const now = new Date();
       const year = now.getFullYear();
@@ -287,7 +292,6 @@
       return `${userEmail}/${deviceId}/${year}/${month}/${day}/${hour}/${fileName}`;
     }
 
-    /* Upload the blob to S3 */
     function uploadToS3(blob, key) {
       if (!s3Client) {
         logError("S3 Client not initialized", new Error("Not Authenticated?"));
@@ -311,12 +315,9 @@
       });
     }
 
-    /* Google Sign-In initialization */
     window.onload = async function () {
-      // Attempt to start camera feed
       await startCamera();
 
-      // Google Sign-In
       google.accounts.id.initialize({
         client_id: "859878185380-o0g59tkq13jm1dhqbt4eb4a4bmgqgjsr.apps.googleusercontent.com",
         callback: handleCredentialResponse
@@ -326,12 +327,10 @@
         { theme: "outline", size: "large" }
       );
 
-      // Event listeners
       startButton.addEventListener("click", startCapture);
       stopButton.addEventListener("click", stopCapture);
     };
 
-    /* Parse token, init AWS, etc. */
     function handleCredentialResponse(response) {
       console.log("Google Sign-In Successful:", response);
       statusDisplay.textContent = "Status: Authenticating with AWS...";
