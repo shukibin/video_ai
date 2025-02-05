@@ -9,23 +9,11 @@
     <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp">
     <title>Viewer App</title>
 
-    <!-- Google OAuth SDK -->
-    <script src="https://accounts.google.com/gsi/client" async defer onload="initializeGoogleOAuth()"></script>
-
     <!-- AWS SDK -->
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1319.0.min.js"></script>
-</head>
-<body>
 
-    <div id="auth-section">
-        <div id="signin-status">Please sign in with Google.</div>
-        <div id="google-signin"></div>
-    </div>
-
-    <div id="image-browser" style="display:none;">
-        <h1>Welcome, you are signed in!</h1>
-        <button onclick="loadImageDropdowns()">Load S3 Images</button>
-    </div>
+    <!-- Google OAuth SDK -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <script>
         // Initialize Google OAuth once the script is loaded
@@ -79,7 +67,20 @@
             console.log('Loading image dropdowns from S3...');
             // Make sure you add the appropriate code to interact with AWS services (like S3)
         }
-
     </script>
+
+</head>
+<body>
+
+    <div id="auth-section">
+        <div id="signin-status">Please sign in with Google.</div>
+        <div id="google-signin"></div>
+    </div>
+
+    <div id="image-browser" style="display:none;">
+        <h1>Welcome, you are signed in!</h1>
+        <button onclick="loadImageDropdowns()">Load S3 Images</button>
+    </div>
+
 </body>
 </html>
