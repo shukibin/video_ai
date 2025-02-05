@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Camera App</title>
+
+  <!-- Google Sign-In -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- AWS SDK -->
+  <script src="https://sdk.amazonaws.com/js/aws-sdk-2.814.0.min.js"></script>
+
+  <style>
+    /* Page Layout - Similar to Viewer App */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background-color: #f3f4f6;
+    }
+    header {
+      background-color: #3b82f6;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+    }
+    .main-container {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    #sidebar {
+      width: 25%;
+      background: #fefefe;
+      padding: 15px;
+      overflow-y: auto;
+      border-right: 1px solid #e5e7eb;
+    }
+    #sidebar h3 {
+      margin-top: 0;
+    }
+    #content {
+      width: 75%;
+      padding: 1rem;
+      text-align: center;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Instructions box styling - same style as in the Viewer App */
+    .instructions {
+      background-color: #e0f2fe;
+      border: 1px solid #bae6fd;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      color: #0369a1;
+    }
+
+    .error-message {
+      color: #dc2626;
+      font-weight: bold;
+      white-space: pre-line;
+      margin-top: 1rem;
+    }
+
+    /* Camera Feed and Buttons */
+    #camera-view {
+      width: 100%;
+      max-width: 600px;
+      background: #000;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+    #status {
+      margin: 1rem 0;
+      font-weight: bold;
+    }
+    button {
+      background-color: #3b82f6;
+      color: white;
+      border: none;
+      padding: 0.75rem 1rem;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 0.5rem;
+      font-size: 1rem;
+    }
+    button:hover {
+      background-color: #2563eb;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>Camera App</h1>
+  </header>
+
+  <div class="main-container">
+    <!-- LEFT SIDEBAR -->
+    <div id="sidebar">
+      <h3>OpenAI Operator Instructions</h3>
+      <div class="instructions">
+        <p>1. Sign in using the button below to authenticate (Google).</p>
+        <p>2. Once signed in, the camera feed will appear on the right.</p>
+        <p>3. Use <strong>Start Capture</strong> to capture images every second.</p>
+        <p>4. Click <strong>Stop Capture</strong> to stop uploading images.</p>
+        <p>5. Images are stored in S3 under <em>deviceId/year/month/day/hour</em>.</p>
+      </div>
+
+      <!-- Google Sign-In Button -->
+      <div id="google-signin-button" style="margin-bottom: 15px;"></div>
+
+      <div id="error-log" class="error-message"></div>
+    </div>
+
+    <!-- RIGHT CONTENT AREA (Camera + Buttons) -->
+    <div id="content">
+      <video id="camera-view" autoplay playsinline></video>
+      <div id="status">Status: Not Authenticated</div>
+      <div>
+        <button id="start-capture" disabled>Start Capture</button>
+        <button id="stop-capture" disabled>Stop Capture</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let deviceId = "myCamera123"; // Hard-coded for demonstration
+    let s3Client;
+    let captureInterval;
+    const bucketName = "images-947384912039";
+    const region = "us-east-1";
+    const identityPoolId = "us-east-1:057eb5c9-a520-4373-80c6-7d43fe3673cb";
+
+    const cameraView = document.getElementById("camera-view");
+    const startButton = document.getElementById("start-capture");
+    const stopButton = document.getElementById("stop-capture");
+    const statusDisplay = document.getElementById("status");
+    const errorLog = document.getElementById("error-log");
+
+    /* Logs errors to console and #error-log */
+    function logError(message, err) {
+      console.error(message, err);
+      if (errorLog) {
+        errorLog.innerText += `\n${message}: ${err.message}`;
+      }
+    }
+
+    /* Initialize AWS after Google Sign-In */
+    function initializeAwsS3(idToken) {
+      try {
+        AWS.config.update({
+          region: region,
+          credentials: new AWS.CognitoIdentityCredentials({
+            IdentityPoolId: identityPoolId,
+            Logins: {
+              "accounts.google.com": idToken
+            }
+          })
+        });
+
+        AWS.config.credentials.get(err => {
+          if (err) {
+            logError("AWS Credentials Error", err);
+            statusDisplay.textContent = "Status: Authentication Failed";
+            return;
+          }
+          console.log("AWS Credentials obtained successfully.");
+          s3Client = new AWS.S3({ apiVersion: "2006-03-01" });
+          statusDisplay.textContent = "Status: Authenticated. Camera Ready?";
+          startButton.disabled = false; // Enable capture
+        });
+      } catch (err) {
+        logError("Error initializing AWS S3", err);
+      }
+    }
+
+    /* Set up the camera (video feed) */
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" }
+        });
+        cameraView.srcObject = stream;
+      } catch (err) {
+        logError("Error accessing camera", err);
+        statusDisplay.textContent = "Status: Camera access denied.";
+      }
+    }
+
+    /* Capture and upload images every second */
+    function startCapture() {
+      statusDisplay.textContent = "Status: Capturing...";
+      startButton.disabled = true;
+      stopButton.disabled = false;
+
+      captureInterval = setInterval(async () => {
+        try {
+          const canvas = document.createElement("canvas");
+          const context = canvas.getContext("2d");
+          canvas.width = cameraView.videoWidth;
+          canvas.height = cameraView.videoHeight;
+          context.drawImage(cameraView, 0, 0, canvas.width, canvas.height);
+
+          const imageBlob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+          const fileName = generateFileName();
+          const fileKey = generateFileKey(fileName);
+
+          uploadToS3(imageBlob, fileKey);
+        } catch (err) {
+          logError("Error capturing image", err);
+        }
+      }, 1000);
+    }
+
+    function stopCapture() {
+      clearInterval(captureInterval);
+      statusDisplay.textContent = "Status: Capture Stopped";
+      startButton.disabled = false;
+      stopButton.disabled = true;
+    }
+
+    function generateFileName() {
+      const now = new Date();
+      const dateStr = now.toISOString().replace(/[:.]/g, "-");
+      // deviceId in the filename
+      return `${deviceId}_${dateStr}.png`;
+    }
+
+    function generateFileKey(fileName) {
+      // device ID in folder structure: deviceId/year/month/day/hour
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const day = String(now.getDate()).padStart(2, "0");
+      const hour = String(now.getHours()).padStart(2, "0");
+
+      return `${deviceId}/${year}/${month}/${day}/${hour}/${fileName}`;
+    }
+
+    function uploadToS3(blob, key) {
+      if (!s3Client) {
+        logError("S3 Client not initialized", new Error("Not Authenticated?"));
+        return;
+      }
+      const params = {
+        Bucket: bucketName,
+        Key: key,
+        Body: blob,
+        ContentType: "image/png"
+      };
+
+      s3Client.upload(params, (err, data) => {
+        if (err) {
+          logError("Error uploading to S3", err);
+        } else {
+          console.log("Successfully uploaded:", data.Location);
+        }
+      });
+    }
+
+    /* Google Sign-In initialization */
+    window.onload = function () {
+      // Start the camera immediately (no authentication needed just to see the local feed)
+      startCamera();
+
+      // Set up google sign in
+      google.accounts.id.initialize({
+        client_id: "859878185380-o0g59tkq13jm1dhqbt4eb4a4bmgqgjsr.apps.googleusercontent.com",
+        callback: handleCredentialResponse
+      });
+      google.accounts.id.renderButton(
+        document.getElementById("google-signin-button"),
+        { theme: "outline", size: "large" }
+      );
+
+      // Event listeners for Start/Stop
+      startButton.addEventListener("click", startCapture);
+      stopButton.addEventListener("click", stopCapture);
+    };
+
+    /* Callback after Google Sign-In is successful */
+    function handleCredentialResponse(response) {
+      console.log("Google Sign-In Successful:", response);
+      statusDisplay.textContent = "Status: Authenticating with AWS...";
+      initializeAwsS3(response.credential);
+    }
+  </script>
+</body>
+</html>
