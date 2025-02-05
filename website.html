@@ -2,208 +2,82 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin">
     <meta http-equiv="Cross-Origin-Resource-Policy" content="same-origin">
-    <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp"> <!-- New header for embedding resources -->
-    <title>Image Browser for OpenAI Operator</title>
+    <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp">
+    <title>Google OAuth with AWS</title>
 
-    <!-- Google Sign-In -->
+    <!-- Google OAuth SDK -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-
     <!-- AWS SDK -->
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1319.0.min.js"></script>
 
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 2em;
-        }
-        #image-preview {
-            max-width: 100%;
-            max-height: 400px;
-            margin-top: 1em;
-        }
-        .dropdown {
-            margin: 10px 0;
-        }
-        button {
-            padding: 10px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
-    </style>
 </head>
 <body>
-    <h1>Image Browser for OpenAI Operator</h1>
-    <p>Authenticate to access the image data and use the dropdowns to select specific images from S3.</p>
 
     <div id="auth-section">
-        <button id="signin-button">Sign in with Google</button>
-        <p id="signin-status"></p>
+        <div id="signin-status">Please sign in with Google.</div>
+        <div id="google-signin"></div>
     </div>
 
     <div id="image-browser" style="display:none;">
-        <div>
-            <label for="device-dropdown">Device ID:</label>
-            <select id="device-dropdown" class="dropdown"></select>
-        </div>
-
-        <div>
-            <label for="year-dropdown">Year:</label>
-            <select id="year-dropdown" class="dropdown"></select>
-        </div>
-
-        <div>
-            <label for="month-dropdown">Month:</label>
-            <select id="month-dropdown" class="dropdown"></select>
-        </div>
-
-        <div>
-            <label for="day-dropdown">Day:</label>
-            <select id="day-dropdown" class="dropdown"></select>
-        </div>
-
-        <div>
-            <label for="hour-dropdown">Hour:</label>
-            <select id="hour-dropdown" class="dropdown"></select>
-        </div>
-
-        <div>
-            <ul id="image-list"></ul>
-        </div>
-
-        <div>
-            <img id="image-preview" alt="Image Preview" />
-        </div>
+        <h1>Welcome, you are signed in!</h1>
+        <button onclick="loadImageDropdowns()">Load S3 Images</button>
     </div>
 
     <script>
-        let s3Client;
-        const bucketName = "images-947384912039";
-        const region = "us-east-1";
-        const identityPoolId = "us-east-1:057eb5c9-a520-4373-80c6-7d43fe3673cb";
+        // Step 1: Initialize Google OAuth
+        google.accounts.id.initialize({
+            client_id: 'YOUR_GOOGLE_CLIENT_ID', // Replace with your Google Client ID
+            callback: handleCredentialResponse
+        });
 
-        function initializeAwsS3(credentials) {
+        google.accounts.id.renderButton(
+            document.getElementById('google-signin'),
+            { theme: 'outline', size: 'large' }
+        );
+
+        // Step 2: Handle the Credential Response from Google
+        function handleCredentialResponse(response) {
+            console.log("Credential response received:", response);
+
+            // Extract the ID token from the response
+            const idToken = response.credential;
+
+            // Step 3: Initialize AWS SDK with Google credentials
             AWS.config.update({
-                region: region,
+                region: 'us-east-1', // Your AWS region
                 credentials: new AWS.CognitoIdentityCredentials({
-                    IdentityPoolId: identityPoolId,
+                    IdentityPoolId: 'us-east-1:example-pool-id', // Replace with your Identity Pool ID
                     Logins: {
-                        'accounts.google.com': credentials.id_token // Pass the Google ID token
+                        'accounts.google.com': idToken // Use the Google login token for authentication
                     }
                 })
             });
 
-            s3Client = new AWS.S3({ apiVersion: '2006-03-01' });
-            loadImageDropdowns(); // Proceed with loading image dropdowns after initializing AWS S3
-        }
-
-        function loadImageDropdowns() {
-            s3Client.listObjectsV2({ Bucket: bucketName }, function (err, data) {
-                if (err) {
-                    console.error("Error listing S3 objects:", err);
-                    return;
-                }
-
-                const objects = data.Contents.map(obj => obj.Key);
-                populateDropdowns(objects);
-            });
-        }
-
-        function populateDropdowns(objects) {
-            const deviceSet = new Set();
-            const yearSet = new Set();
-            const monthSet = new Set();
-            const daySet = new Set();
-            const hourSet = new Set();
-
-            objects.forEach(key => {
-                const parts = key.split('/');
-                if (parts.length === 6) {
-                    const [device, year, month, day, hour] = parts;
-                    deviceSet.add(device);
-                    yearSet.add(year);
-                    monthSet.add(month);
-                    daySet.add(day);
-                    hourSet.add(hour);
+            // Step 4: Get AWS credentials using the Cognito Identity Pool
+            AWS.config.credentials.get(function() {
+                if (AWS.config.credentials) {
+                    console.log("Successfully authenticated with AWS");
+                    loadImageDropdowns();  // Proceed with the next steps (e.g., load S3 data)
+                } else {
+                    console.error("Failed to authenticate with AWS");
                 }
             });
 
-            populateDropdown('device-dropdown', deviceSet);
-            populateDropdown('year-dropdown', yearSet);
-            populateDropdown('month-dropdown', monthSet);
-            populateDropdown('day-dropdown', daySet);
-            populateDropdown('hour-dropdown', hourSet);
-
-            document.getElementById('device-dropdown').addEventListener('change', updateImageList);
-        }
-
-        function populateDropdown(id, values) {
-            const dropdown = document.getElementById(id);
-            dropdown.innerHTML = '<option value="">Select...</option>';
-            values.forEach(value => {
-                const option = document.createElement('option');
-                option.value = value;
-                option.textContent = value;
-                dropdown.appendChild(option);
-            });
-        }
-
-        function updateImageList() {
-            const deviceId = document.getElementById('device-dropdown').value;
-            const year = document.getElementById('year-dropdown').value;
-            const month = document.getElementById('month-dropdown').value;
-            const day = document.getElementById('day-dropdown').value;
-            const hour = document.getElementById('hour-dropdown').value;
-
-            if (!deviceId || !year || !month || !day || !hour) return;
-
-            const prefix = `${deviceId}/${year}/${month}/${day}/${hour}/`;
-
-            s3Client.listObjectsV2({ Bucket: bucketName, Prefix: prefix }, function (err, data) {
-                if (err) {
-                    console.error("Error listing images:", err);
-                    return;
-                }
-                const imageList = document.getElementById('image-list');
-                imageList.innerHTML = '';
-                data.Contents.forEach(obj => {
-                    const li = document.createElement('li');
-                    const link = document.createElement('a');
-                    link.href = `https://${bucketName}.s3.amazonaws.com/${obj.Key}`;
-                    link.textContent = obj.Key;
-                    link.target = '_blank';
-                    link.addEventListener('click', event => {
-                        event.preventDefault();
-                        document.getElementById('image-preview').src = link.href;
-                    });
-                    li.appendChild(link);
-                    imageList.appendChild(li);
-                });
-            });
-        }
-
-        // Google Sign-In Initialization
-        window.onload = function () {
-            google.accounts.id.initialize({
-                client_id: "859878185380-o0g59tkq13jm1dhqbt4eb4a4bmgqgjsr.apps.googleusercontent.com", // Make sure this matches your client ID
-                callback: handleCredentialResponse
-            });
-            google.accounts.id.renderButton(
-                document.getElementById("signin-button"),
-                { theme: "outline", size: "large" }
-            );
-        };
-
-        function handleCredentialResponse(response) {
-            document.getElementById('signin-status').textContent = "Signed in successfully.";
+            // Step 5: Hide the sign-in section and show the image browser
             document.getElementById('auth-section').style.display = 'none';
             document.getElementById('image-browser').style.display = 'block';
-            initializeAwsS3(response.credential); // Initialize AWS with the Google token
         }
+
+        // Step 6: Load S3 Image Dropdowns (You can replace this with your actual code to load images)
+        function loadImageDropdowns() {
+            console.log('Loading image dropdowns from S3...');
+            // Make sure you add the appropriate code to interact with AWS services (like S3)
+        }
+
     </script>
 </body>
 </html>
