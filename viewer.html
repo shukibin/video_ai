@@ -7,13 +7,12 @@
     <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin">
     <meta http-equiv="Cross-Origin-Resource-Policy" content="same-origin">
     <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp">
-    <title>Google OAuth with AWS</title>
+    <title>Viewer App</title>
 
     <!-- Google OAuth SDK -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- AWS SDK -->
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1319.0.min.js"></script>
-
 </head>
 <body>
 
@@ -30,7 +29,7 @@
     <script>
         // Step 1: Initialize Google OAuth
         google.accounts.id.initialize({
-            client_id: '777572259375-3kqjs98smu7de4vgc4s0m8ckfmf4scs2.apps.googleusercontent.com', // Your Google OAuth Client ID
+            client_id: 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com', // Replace with the correct Google OAuth Client ID
             callback: handleCredentialResponse
         });
 
