@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Viewer App - Authenticated Image Browser</title>
+  <title>Viewer App - Authenticated Image Browser (Plus/Minus Tree)</title>
 
   <!-- Google Sign-In -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -78,47 +78,52 @@
       margin-top: 1rem;
     }
 
-    /* Treeview CSS (inspired by minimal version) */
+    /* Tree with plus/minus for folders */
     ul.tree {
       list-style-type: none;
-      padding-left: 1em;
       margin: 0;
+      padding: 0;
     }
-    ul.tree li {
-      position: relative;
-      margin: 0.5em 0;
-    }
-    ul.tree input[type="checkbox"] {
-      position: absolute;
-      left: -1.2em;
-      top: 0;
-    }
-    ul.tree label {
+
+    .folder-node {
+      display: flex;
+      align-items: center;
       cursor: pointer;
       font-weight: bold;
-      margin-left: 0.5em;
+      margin: 0.2rem 0;
     }
-    ul.tree label.file {
-      font-weight: normal;
+
+    .folder-icon {
+      width: 1.5rem;
+      text-align: center;
+      margin-right: 0.25rem;
+      font-weight: bold;
+      color: #1d4ed8;
+    }
+
+    .folder-contents {
+      margin-left: 1.5rem;
+      border-left: 1px dotted #999;
+      padding-left: 1rem;
+      display: none;
+    }
+
+    .file-node {
+      margin: 0.2rem 0;
+      margin-left: 1.8rem;
       color: #1d4ed8;
       text-decoration: underline;
       cursor: pointer;
     }
-    ul.tree ul {
-      margin-left: 1.5em;
-      border-left: 1px dotted #999;
-      padding-left: 1em;
-      display: none;
-    }
-    /* When the checkbox is checked, show nested UL */
-    ul.tree input[type="checkbox"]:checked ~ ul {
-      display: block;
+
+    .expanded {
+      display: block !important;
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>Viewer App - Authenticated Image Browser</h1>
+    <h1>Viewer App - Authenticated Image Browser (Plus/Minus Tree)</h1>
   </header>
 
   <div class="main-container">
@@ -128,14 +133,12 @@
       <div class="instructions">
         <p>1. Sign in using the button below to authenticate.</p>
         <p>2. Once signed in, the S3 objects will appear in the tree view.</p>
-        <p>3. Click a folder name to expand its contents.</p>
+        <p>3. Click the <strong>+ / -</strong> next to a folder to expand or collapse it.</p>
         <p>4. Click any file name to load the image preview on the right.</p>
       </div>
 
-      <!-- Google Sign-In Button -->
       <div id="google-signin-button" style="margin-bottom: 15px;"></div>
 
-      <!-- Tree structure and error logs -->
       <ul id="folder-structure" class="tree"></ul>
       <div id="error-log" class="error-message"></div>
     </div>
@@ -153,7 +156,6 @@
     const region = "us-east-1";
     const identityPoolId = "us-east-1:057eb5c9-a520-4373-80c6-7d43fe3673cb";
 
-    // Logs errors to console and the #error-log element
     function logError(message, err) {
       console.error(message, err);
       const errorLog = document.getElementById("error-log");
@@ -162,7 +164,7 @@
       }
     }
 
-    // Sets up AWS configuration and calls loadFolderStructure()
+    // Initialize AWS credentials after successful Google Sign-In
     function initializeAwsS3(idToken) {
       try {
         AWS.config.update({
@@ -189,7 +191,7 @@
       }
     }
 
-    // Lists objects from S3 and constructs a folder structure in memory
+    // List objects from S3 and build a folder structure in memory
     function loadFolderStructure() {
       try {
         s3Client.listObjectsV2({ Bucket: bucketName }, function (err, data) {
@@ -204,10 +206,8 @@
             let currentLevel = folderStructure;
             parts.forEach((part, index) => {
               if (index === parts.length - 1) {
-                // It's a file
-                currentLevel[part] = obj.Key;
+                currentLevel[part] = obj.Key;  // It's a file
               } else {
-                // It's a directory
                 if (!currentLevel[part]) {
                   currentLevel[part] = {};
                 }
@@ -221,8 +221,6 @@
             logError("Error: folder-structure container is null", new Error("Container missing"));
             return;
           }
-
-          // Clear any existing content before rendering
           container.innerHTML = "";
           renderFolderTree(folderStructure, container);
         });
@@ -231,56 +229,56 @@
       }
     }
 
-    // Generate a unique ID for each checkbox
-    function generateUniqueId() {
-      return "node-" + Math.random().toString(36).substr(2, 9);
-    }
-
-    // Recursively renders the folder/file hierarchy
+    // Renders the folder/file hierarchy with + / - toggles for folders
     function renderFolderTree(structure, container) {
       try {
         for (let key in structure) {
-          const li = document.createElement("li");
-
-          // If it's a folder
           if (typeof structure[key] === "object") {
-            const nodeId = generateUniqueId();
-            const checkbox = document.createElement("input");
-            checkbox.type = "checkbox";
-            checkbox.id = nodeId;
+            // Folder
+            const li = document.createElement("li");
 
-            const label = document.createElement("label");
-            label.htmlFor = nodeId;
-            label.textContent = key;
+            const folderNode = document.createElement("div");
+            folderNode.classList.add("folder-node");
 
-            const subUl = document.createElement("ul");
-            subUl.classList.add("tree");
+            const iconSpan = document.createElement("span");
+            iconSpan.textContent = "+"; // default collapsed
+            iconSpan.classList.add("folder-icon");
+
+            const labelSpan = document.createElement("span");
+            labelSpan.textContent = key;
+
+            // Subfolder container
+            const subContainer = document.createElement("ul");
+            subContainer.classList.add("folder-contents");
 
             // Recursively build children
-            renderFolderTree(structure[key], subUl);
+            renderFolderTree(structure[key], subContainer);
 
-            li.appendChild(checkbox);
-            li.appendChild(label);
-            li.appendChild(subUl);
+            // Toggle expand/collapse on click
+            folderNode.addEventListener("click", () => {
+              if (subContainer.classList.contains("expanded")) {
+                subContainer.classList.remove("expanded");
+                iconSpan.textContent = "+";
+              } else {
+                subContainer.classList.add("expanded");
+                iconSpan.textContent = "-";
+              }
+            });
+
+            folderNode.appendChild(iconSpan);
+            folderNode.appendChild(labelSpan);
+
+            li.appendChild(folderNode);
+            li.appendChild(subContainer);
+            container.appendChild(li);
           } else {
-            // It's a file
-            const nodeId = generateUniqueId();
-            const fileCheckbox = document.createElement("input");
-            fileCheckbox.type = "checkbox";
-            fileCheckbox.id = nodeId;
-
-            const fileLabel = document.createElement("label");
-            fileLabel.htmlFor = nodeId;
-            fileLabel.textContent = key;
-            fileLabel.classList.add("file");
-
-            // Instead of direct S3 URL, fetch object via getObject
-            fileLabel.addEventListener("click", () => fetchAndPreviewImage(structure[key]));
-
-            li.appendChild(fileCheckbox);
-            li.appendChild(fileLabel);
+            // File
+            const li = document.createElement("li");
+            li.classList.add("file-node");
+            li.textContent = key;
+            li.addEventListener("click", () => fetchAndPreviewImage(structure[key]));
+            container.appendChild(li);
           }
-          container.appendChild(li);
         }
       } catch (err) {
         logError("Error rendering folder tree", err);
@@ -290,7 +288,6 @@
     // Retrieve image data from S3 using getObject and display in <img>
     function fetchAndPreviewImage(fileKey) {
       try {
-        // Fallback to 'image/png' if no content type
         const defaultContentType = "image/png";
 
         s3Client.getObject({ Bucket: bucketName, Key: fileKey }, (err, data) => {
@@ -317,7 +314,6 @@
         client_id: "859878185380-o0g59tkq13jm1dhqbt4eb4a4bmgqgjsr.apps.googleusercontent.com",
         callback: handleCredentialResponse
       });
-      // Render the GSI button in the #google-signin-button container
       google.accounts.id.renderButton(
         document.getElementById("google-signin-button"),
         { theme: "outline", size: "large" }
