@@ -44,12 +44,17 @@
             color: blue;
             text-decoration: underline;
         }
+        .error-message {
+            color: red;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
     <div id="sidebar">
         <h3>Image Explorer</h3>
         <div id="folder-structure"></div>
+        <div id="error-log" class="error-message"></div>
     </div>
     <div id="content">
         <h3>Image Preview</h3>
@@ -62,82 +67,108 @@
         const region = "us-east-1";
         const identityPoolId = "us-east-1:057eb5c9-a520-4373-80c6-7d43fe3673cb";
 
-        function initializeAwsS3(idToken) {
-            AWS.config.update({
-                region: region,
-                credentials: new AWS.CognitoIdentityCredentials({
-                    IdentityPoolId: identityPoolId,
-                    Logins: {
-                        'accounts.google.com': idToken
-                    }
-                })
-            });
+        function logError(message, err) {
+            console.error(message, err);
+            document.getElementById("error-log").innerText = `${message}: ${err.message}`;
+        }
 
-            AWS.config.credentials.get((err) => {
-                if (err) {
-                    console.error("AWS Credentials Error:", err);
-                    alert("Failed to authenticate with AWS: " + err.message);
-                } else {
+        function initializeAwsS3(idToken) {
+            try {
+                AWS.config.update({
+                    region: region,
+                    credentials: new AWS.CognitoIdentityCredentials({
+                        IdentityPoolId: identityPoolId,
+                        Logins: {
+                            'accounts.google.com': idToken
+                        }
+                    })
+                });
+
+                AWS.config.credentials.get((err) => {
+                    if (err) {
+                        logError("AWS Credentials Error", err);
+                        return;
+                    }
                     console.log("AWS Credentials obtained successfully.");
                     s3Client = new AWS.S3({ apiVersion: '2006-03-01' });
                     loadFolderStructure();
-                }
-            });
+                });
+            } catch (err) {
+                logError("Error initializing AWS S3", err);
+            }
         }
 
         function loadFolderStructure() {
-            s3Client.listObjectsV2({ Bucket: bucketName }, function (err, data) {
-                if (err) {
-                    console.error("Error listing S3 objects:", err);
-                    return;
-                }
-                
-                const folderStructure = {};
-                data.Contents.forEach(obj => {
-                    const parts = obj.Key.split('/');
-                    let currentLevel = folderStructure;
-                    parts.forEach((part, index) => {
-                        if (index === parts.length - 1) {
-                            currentLevel[part] = obj.Key; // Store full path for files
-                        } else {
-                            if (!currentLevel[part]) {
-                                currentLevel[part] = {};
+            try {
+                s3Client.listObjectsV2({ Bucket: bucketName }, function (err, data) {
+                    if (err) {
+                        logError("Error listing S3 objects", err);
+                        return;
+                    }
+                    
+                    const folderStructure = {};
+                    data.Contents.forEach(obj => {
+                        const parts = obj.Key.split('/');
+                        let currentLevel = folderStructure;
+                        parts.forEach((part, index) => {
+                            if (index === parts.length - 1) {
+                                currentLevel[part] = obj.Key; // Store full path for files
+                            } else {
+                                if (!currentLevel[part]) {
+                                    currentLevel[part] = {};
+                                }
+                                currentLevel = currentLevel[part];
                             }
-                            currentLevel = currentLevel[part];
-                        }
+                        });
                     });
-                });
 
-                renderFolderTree(folderStructure, document.getElementById("folder-structure"));
-            });
+                    const container = document.getElementById("folder-structure");
+                    if (!container) {
+                        logError("Error: Folder structure container is null", new Error("Container missing"));
+                        return;
+                    }
+                    container.innerHTML = "";
+                    renderFolderTree(folderStructure, container);
+                });
+            } catch (err) {
+                logError("Unexpected error loading folder structure", err);
+            }
         }
 
         function renderFolderTree(structure, container) {
-            for (let key in structure) {
-                const item = document.createElement("div");
-                if (typeof structure[key] === "object") {
-                    item.textContent = key;
-                    item.classList.add("folder");
-                    const subContainer = document.createElement("div");
-                    subContainer.style.display = "none";
-                    item.addEventListener("click", () => {
-                        subContainer.style.display = subContainer.style.display === "none" ? "block" : "none";
-                    });
-                    renderFolderTree(structure[key], subContainer);
-                    item.appendChild(subContainer);
-                } else {
-                    item.textContent = key;
-                    item.classList.add("file");
-                    item.addEventListener("click", () => previewImage(structure[key]));
+            try {
+                for (let key in structure) {
+                    const item = document.createElement("div");
+                    if (typeof structure[key] === "object") {
+                        item.textContent = key;
+                        item.classList.add("folder");
+                        const subContainer = document.createElement("div");
+                        subContainer.style.display = "none";
+                        item.addEventListener("click", () => {
+                            subContainer.style.display = subContainer.style.display === "none" ? "block" : "none";
+                        });
+                        renderFolderTree(structure[key], subContainer);
+                        item.appendChild(subContainer);
+                    } else {
+                        item.textContent = key;
+                        item.classList.add("file");
+                        item.addEventListener("click", () => previewImage(structure[key]));
+                    }
+                    container.appendChild(item);
                 }
-                container.appendChild(item);
+            } catch (err) {
+                logError("Error rendering folder tree", err);
             }
         }
 
         function previewImage(filePath) {
-            const imageUrl = `https://${bucketName}.s3.amazonaws.com/${filePath}`;
-            document.getElementById("image-preview").src = imageUrl;
-            document.getElementById("image-preview").style.display = "block";
+            try {
+                const imageUrl = `https://${bucketName}.s3.amazonaws.com/${filePath}`;
+                document.getElementById("image-preview").src = imageUrl;
+                document.getElementById("image-preview").style.display = "block";
+            } catch (err) {
+                logError("Error displaying image preview", err);
+            }
         }
 
         // Google Sign-In Initialization
