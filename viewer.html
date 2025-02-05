@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Viewer App - Authenticated Image Browser (Plus/Minus Tree)</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Viewer App - Authenticated Image Browser (No Indentation Lines)</title>
 
   <!-- Google Sign-In -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -11,6 +11,7 @@
   <script src="https://sdk.amazonaws.com/js/aws-sdk-2.814.0.min.js"></script>
 
   <style>
+    /* Page Layout */
     body {
       font-family: Arial, sans-serif;
       margin: 0;
@@ -19,20 +20,17 @@
       flex-direction: column;
       background-color: #f3f4f6;
     }
-
     header {
       background-color: #3b82f6;
       color: white;
       padding: 1rem;
       text-align: center;
     }
-
     .main-container {
       display: flex;
       flex: 1;
       overflow: hidden;
     }
-
     #sidebar {
       width: 25%;
       background: #fefefe;
@@ -40,11 +38,9 @@
       overflow-y: auto;
       border-right: 1px solid #e5e7eb;
     }
-
     #sidebar h3 {
       margin-top: 0;
     }
-
     #content {
       width: 75%;
       padding: 1rem;
@@ -62,6 +58,13 @@
       color: #0369a1;
     }
 
+    /* Error and Preview Styling */
+    .error-message {
+      color: #dc2626;
+      font-weight: bold;
+      white-space: pre-line;
+      margin-top: 1rem;
+    }
     #image-preview {
       max-width: 100%;
       max-height: 70vh;
@@ -71,18 +74,16 @@
       margin-top: 1rem;
     }
 
-    .error-message {
-      color: #dc2626;
-      font-weight: bold;
-      white-space: pre-line;
-      margin-top: 1rem;
-    }
-
-    /* Tree with plus/minus for folders */
+    /* Tree with plus/minus for folders - no dotted lines or extra indentation */
     ul.tree {
-      list-style-type: none;
+      list-style: none;       /* Remove default bullets */
       margin: 0;
       padding: 0;
+    }
+    ul.tree li {
+      margin: 0;
+      padding: 0;
+      border: none !important;   /* Prevent inherited borders */
     }
 
     /* Folder node styling */
@@ -103,8 +104,10 @@
 
     /* Sub-tree container for folder contents */
     .folder-contents {
-      display: none;
-      margin-left: 1.5rem; /* slightly shift contents to the right */
+      display: none;          /* Hidden until expanded */
+      margin-left: 1.5rem;    /* Slight shift for clarity */
+      padding-left: 0 !important;  
+      border-left: none !important; /* Ensure no dotted lines appear */
     }
     .expanded {
       display: block !important;
@@ -112,7 +115,7 @@
 
     /* File node styling */
     .file-node {
-      margin: 0.3rem 0 0.3rem 1.8rem; /* left indent for files */
+      margin: 0.3rem 0 0.3rem 1.8rem;
       color: #1d4ed8;
       text-decoration: underline;
       cursor: pointer;
@@ -121,7 +124,7 @@
 </head>
 <body>
   <header>
-    <h1>Viewer App - Authenticated Image Browser (Plus/Minus Tree)</h1>
+    <h1>Viewer App - Authenticated Image Browser (No Indentation Lines)</h1>
   </header>
 
   <div class="main-container">
@@ -135,8 +138,10 @@
         <p>4. Click any file name to load the image preview on the right.</p>
       </div>
 
+      <!-- Google Sign-In Button -->
       <div id="google-signin-button" style="margin-bottom: 15px;"></div>
 
+      <!-- Folder Tree and Errors -->
       <ul id="folder-structure" class="tree"></ul>
       <div id="error-log" class="error-message"></div>
     </div>
@@ -154,6 +159,7 @@
     const region = "us-east-1";
     const identityPoolId = "us-east-1:057eb5c9-a520-4373-80c6-7d43fe3673cb";
 
+    /* Logs errors to console and the #error-log element */
     function logError(message, err) {
       console.error(message, err);
       const errorLog = document.getElementById("error-log");
@@ -162,7 +168,7 @@
       }
     }
 
-    // Initialize AWS credentials after successful Google Sign-In
+    /* Initialize AWS credentials after successful Google Sign-In */
     function initializeAwsS3(idToken) {
       try {
         AWS.config.update({
@@ -189,7 +195,7 @@
       }
     }
 
-    // List objects from S3 and build a folder structure in memory
+    /* List objects from S3 and build a folder structure in memory */
     function loadFolderStructure() {
       try {
         s3Client.listObjectsV2({ Bucket: bucketName }, function (err, data) {
@@ -203,9 +209,11 @@
             const parts = obj.Key.split("/");
             let currentLevel = folderStructure;
             parts.forEach((part, index) => {
+              // If it's the last part, treat it as a file
               if (index === parts.length - 1) {
-                currentLevel[part] = obj.Key;  // It's a file
+                currentLevel[part] = obj.Key;
               } else {
+                // It's a folder
                 if (!currentLevel[part]) {
                   currentLevel[part] = {};
                 }
@@ -227,12 +235,12 @@
       }
     }
 
-    // Renders the folder/file hierarchy with + / - toggles for folders
+    /* Renders the folder/file hierarchy with + / - toggles for folders */
     function renderFolderTree(structure, container) {
       try {
         for (let key in structure) {
           if (typeof structure[key] === "object") {
-            // Folder
+            // FOLDER
             const li = document.createElement("li");
 
             const folderNode = document.createElement("div");
@@ -245,14 +253,14 @@
             const labelSpan = document.createElement("span");
             labelSpan.textContent = key;
 
-            // Subfolder container
+            /* Subfolder container */
             const subContainer = document.createElement("ul");
             subContainer.classList.add("folder-contents");
 
-            // Recursively build children
+            /* Recursively build children */
             renderFolderTree(structure[key], subContainer);
 
-            // Toggle expand/collapse on click
+            /* Toggle expand/collapse on click */
             folderNode.addEventListener("click", () => {
               if (subContainer.classList.contains("expanded")) {
                 subContainer.classList.remove("expanded");
@@ -265,13 +273,11 @@
 
             folderNode.appendChild(iconSpan);
             folderNode.appendChild(labelSpan);
-
             li.appendChild(folderNode);
             li.appendChild(subContainer);
             container.appendChild(li);
-
           } else {
-            // File
+            // FILE
             const li = document.createElement("li");
             li.classList.add("file-node");
             li.textContent = key;
@@ -284,7 +290,7 @@
       }
     }
 
-    // Retrieve image data from S3 using getObject and display in <img>
+    /* Retrieve image data from S3 using getObject and display in <img> */
     function fetchAndPreviewImage(fileKey) {
       try {
         const defaultContentType = "image/png";
@@ -307,7 +313,7 @@
       }
     }
 
-    // Google Sign-In initialization
+    /* Google Sign-In initialization */
     window.onload = function () {
       google.accounts.id.initialize({
         client_id: "859878185380-o0g59tkq13jm1dhqbt4eb4a4bmgqgjsr.apps.googleusercontent.com",
@@ -319,7 +325,7 @@
       );
     };
 
-    // Callback after Google Sign-In is successful
+    /* Callback after Google Sign-In is successful */
     function handleCredentialResponse(response) {
       console.log("Google Sign-In Successful:", response);
       initializeAwsS3(response.credential);
