@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Image Browser for OpenAI Operator</title>
+  <title>Image Browser Tree View</title>
 
   <!-- Google Sign-In -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -33,21 +33,46 @@
       max-height: 80vh;
       display: none;
     }
-    .folder {
-      margin-left: 10px;
-      cursor: pointer;
-      font-weight: bold;
-    }
-    .file {
-      margin-left: 20px;
-      cursor: pointer;
-      color: blue;
-      text-decoration: underline;
-    }
     .error-message {
       color: red;
       font-weight: bold;
       white-space: pre-line;
+    }
+
+    /* Treeview CSS from cssscript.com reference (minimal version) */
+    ul.tree {
+      list-style-type: none;
+      padding-left: 1em;
+    }
+    ul.tree li {
+      position: relative;
+      margin: 0.5em 0;
+    }
+    ul.tree input[type="checkbox"] {
+      position: absolute;
+      left: -1.2em;
+      top: 0;
+    }
+    ul.tree label {
+      cursor: pointer;
+      font-weight: bold;
+      margin-left: 0.5em;
+    }
+    ul.tree label.file {
+      font-weight: normal;
+      color: blue;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    ul.tree ul {
+      margin-left: 1.5em;
+      border-left: 1px dotted #999;
+      padding-left: 1em;
+      display: none;
+    }
+    /* When the checkbox is checked, show nested UL */
+    ul.tree input[type="checkbox"]:checked ~ ul {
+      display: block;
     }
   </style>
 </head>
@@ -58,8 +83,8 @@
     <!-- Container for Google Sign-In Button -->
     <div id="google-signin-button" style="margin-bottom: 15px;"></div>
 
-    <!-- Folder structure and error logs -->
-    <div id="folder-structure"></div>
+    <!-- Tree structure and error logs -->
+    <ul id="folder-structure" class="tree"></ul>
     <div id="error-log" class="error-message"></div>
   </div>
 
@@ -140,9 +165,10 @@
 
           const container = document.getElementById("folder-structure");
           if (!container) {
-            logError("Error: Folder structure container is null", new Error("Container missing"));
+            logError("Error: folder-structure container is null", new Error("Container missing"));
             return;
           }
+
           // Clear any existing content before rendering
           container.innerHTML = "";
           renderFolderTree(folderStructure, container);
@@ -152,34 +178,55 @@
       }
     }
 
-    // Recursively renders the folder/file hierarchy as clickable elements
+    // Generate a unique ID for each checkbox
+    function generateUniqueId() {
+      return 'node-' + Math.random().toString(36).substr(2, 9);
+    }
+
+    // Recursively renders the folder/file hierarchy using the treeview with checkboxes
     function renderFolderTree(structure, container) {
       try {
         for (let key in structure) {
-          const item = document.createElement("div");
+          const li = document.createElement("li");
+
+          // If it's a folder
           if (typeof structure[key] === "object") {
-            // This is a folder/directory
-            item.textContent = key;
-            item.classList.add("folder");
+            const nodeId = generateUniqueId();
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.id = nodeId;
 
-            const subContainer = document.createElement("div");
-            subContainer.style.display = "none";
+            const label = document.createElement("label");
+            label.htmlFor = nodeId;
+            label.textContent = key;
 
-            // Toggle subfolder visibility on click
-            item.addEventListener("click", () => {
-              subContainer.style.display =
-                subContainer.style.display === "none" ? "block" : "none";
-            });
+            const subUl = document.createElement("ul");
+            subUl.classList.add("tree");
 
-            renderFolderTree(structure[key], subContainer);
-            item.appendChild(subContainer);
+            // Recursively build children
+            renderFolderTree(structure[key], subUl);
+
+            li.appendChild(checkbox);
+            li.appendChild(label);
+            li.appendChild(subUl);
           } else {
-            // This is a file
-            item.textContent = key;
-            item.classList.add("file");
-            item.addEventListener("click", () => previewImage(structure[key]));
+            // It's a file
+            const nodeId = generateUniqueId();
+            const fileCheckbox = document.createElement("input");
+            fileCheckbox.type = "checkbox";
+            fileCheckbox.id = nodeId;
+
+            const fileLabel = document.createElement("label");
+            fileLabel.htmlFor = nodeId;
+            fileLabel.textContent = key;
+            fileLabel.classList.add("file");
+            fileLabel.addEventListener("click", () => previewImage(structure[key]));
+
+            li.appendChild(fileCheckbox);
+            li.appendChild(fileLabel);
           }
-          container.appendChild(item);
+
+          container.appendChild(li);
         }
       } catch (err) {
         logError("Error rendering folder tree", err);
