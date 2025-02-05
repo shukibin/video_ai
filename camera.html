@@ -146,7 +146,7 @@
     let captureInterval;
     let uploadedImagesCount = 0;
     let deviceId = null;   // Real device ID from enumerating media devices
-    let userName = null;   // From Google Sign-In
+    let userEmail = null;  // From Google Sign-In
 
     /* Logs errors to console and #error-log */
     function logError(message, err) {
@@ -156,17 +156,17 @@
       }
     }
 
-    /* Parse the Google ID token to extract name/username */
+    /* Parse the Google ID token to extract email */
     function parseGoogleIdToken(jwt) {
       try {
         // Basic parse of the ID token
         const payload = jwt.split('.')[1];
         const decoded = JSON.parse(atob(payload));
-        // Typically, 'name' or 'email' is available. Adjust if your ID token differs.
-        return decoded.name || decoded.email || "UnknownUser";
+        // We'll use the 'email' field, as requested
+        return decoded.email || "unknown@example.com";
       } catch (err) {
         logError("Error parsing Google ID token", err);
-        return "UnknownUser";
+        return "unknown@example.com";
       }
     }
 
@@ -186,7 +186,7 @@
     /* Initialize AWS after Google Sign-In */
     function initializeAwsS3(idToken) {
       try {
-        userName = parseGoogleIdToken(idToken);
+        userEmail = parseGoogleIdToken(idToken);
 
         AWS.config.update({
           region: region,
@@ -265,14 +265,14 @@
       stopButton.disabled = true;
     }
 
-    /* Format the file name: e.g. userName_deviceId_timestamp.png */
+    /* Format the file name: e.g. userEmail_deviceId_timestamp.png */
     function generateFileName() {
       const now = new Date();
       const dateStr = now.toISOString().replace(/[:.]/g, "-");
-      return `${userName}_${deviceId}_${dateStr}.png`;
+      return `${userEmail}_${deviceId}_${dateStr}.png`;
     }
 
-    /* Folder hierarchy: username/deviceId/year/month/day/hour/filename */
+    /* Folder hierarchy: email/device_id/year/month/day/hour/filename */
     function generateFileKey(fileName) {
       const now = new Date();
       const year = now.getFullYear();
@@ -280,7 +280,7 @@
       const day = String(now.getDate()).padStart(2, "0");
       const hour = String(now.getHours()).padStart(2, "0");
 
-      return `${userName}/${deviceId}/${year}/${month}/${day}/${hour}/${fileName}`;
+      return `${userEmail}/${deviceId}/${year}/${month}/${day}/${hour}/${fileName}`;
     }
 
     /* Upload the blob to S3 */
