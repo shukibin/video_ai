@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Image Browser for OpenAI Operators</title>
-    <script src="https://apis.google.com/js/platform.js" async defer></script>
+    <script src="https://apis.google.com/js/platform.js?onload=initGoogleAPI" async defer></script>
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.814.0.min.js"></script>
     <style>
       body {
@@ -66,16 +66,25 @@
       const region = "us-east-1";
       const identityPoolId = "us-east-1:057eb5c9-a520-4373-80c6-7d43fe3673cb";
       let s3;
-      let imageData = {};
+
+      // Initialize Google API on load
+      function initGoogleAPI() {
+        gapi.load('auth2', () => {
+          gapi.auth2.init({
+            client_id: "859878185380-o0g59tkq13jm1dhqbt4eb4a4bmgqgjsr.apps.googleusercontent.com"
+          });
+        });
+      }
 
       // Google sign-in button handler
       document.getElementById('google-login-btn').addEventListener('click', () => {
-        const auth2 = gapi.auth2.init({
-          client_id: "859878185380-o0g59tkq13jm1dhqbt4eb4a4bmgqgjsr.apps.googleusercontent.com"
-        });
+        const auth2 = gapi.auth2.getAuthInstance();
         auth2.signIn().then(user => {
           const idToken = user.getAuthResponse().id_token;
           authenticateWithAWS(idToken);
+        }).catch(err => {
+          console.error("Google Sign-In Error", err);
+          alert("Google Sign-In failed. Please try again.");
         });
       });
 
