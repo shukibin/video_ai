@@ -65,34 +65,29 @@
       white-space: pre-line;
       margin-top: 1rem;
     }
+
+    /* This time, no max constraints -> show in native resolution */
     #image-preview {
-      max-width: 100%;
-      max-height: 70vh;
       display: none;
       border: 1px solid #ddd;
       border-radius: 8px;
       margin-top: 1rem;
+      width: auto;    /* Let it show at native resolution */
+      height: auto;
     }
 
-    /* Tree with plus/minus for folders - no dotted lines or extra indentation */
+    /* Tree with plus/minus for folders */
     ul.tree {
-      list-style: none;       /* Remove default bullets */
+      list-style-type: none;
       margin: 0;
       padding: 0;
     }
-    ul.tree li {
-      margin: 0;
-      padding: 0;
-      border: none !important;   /* Prevent inherited borders */
-    }
-
-    /* Folder node styling */
     .folder-node {
-      display: inline-flex;
+      display: flex;
       align-items: center;
       cursor: pointer;
       font-weight: bold;
-      margin: 0.3rem 0;
+      margin: 0.2rem 0;
     }
     .folder-icon {
       width: 1.5rem;
@@ -101,24 +96,36 @@
       font-weight: bold;
       color: #1d4ed8;
     }
-
-    /* Sub-tree container for folder contents */
     .folder-contents {
-      display: none;          /* Hidden until expanded */
-      margin-left: 1.5rem;    /* Slight shift for clarity */
-      padding-left: 0 !important;  
-      border-left: none !important; /* Ensure no dotted lines appear */
+      margin-left: 1.5rem;
+      padding-left: 1rem;
+      display: none;
+      border-left: 1px dotted #999;
     }
     .expanded {
       display: block !important;
     }
-
-    /* File node styling */
     .file-node {
-      margin: 0.3rem 0 0.3rem 1.8rem;
+      margin: 0.2rem 0;
+      margin-left: 1.8rem;
       color: #1d4ed8;
       text-decoration: underline;
       cursor: pointer;
+    }
+
+    /* Button styling for 'Refresh S3' */
+    .refresh-button {
+      background-color: #3b82f6;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-bottom: 1rem;
+      font-size: 1rem;
+    }
+    .refresh-button:hover {
+      background-color: #2563eb;
     }
   </style>
 </head>
@@ -132,14 +139,17 @@
     <div id="sidebar">
       <h3>OpenAI Operator Instructions</h3>
       <div class="instructions">
-        <p>1. Sign in using the button below to authenticate.</p>
+        <p>1. Sign in using the button below to authenticate (Google).</p>
         <p>2. Once signed in, the S3 objects will appear in the tree view.</p>
         <p>3. Click the <strong>+ / -</strong> next to a folder to expand or collapse it.</p>
-        <p>4. Click any file name to load the image preview on the right.</p>
+        <p>4. Click any file name to load the image preview on the right in its native resolution.</p>
       </div>
 
       <!-- Google Sign-In Button -->
       <div id="google-signin-button" style="margin-bottom: 15px;"></div>
+
+      <!-- Refresh Button to reload S3 data -->
+      <button id="refresh-button" class="refresh-button" style="display: none;">Refresh S3</button>
 
       <!-- Folder Tree and Errors -->
       <ul id="folder-structure" class="tree"></ul>
@@ -159,7 +169,7 @@
     const region = "us-east-1";
     const identityPoolId = "us-east-1:057eb5c9-a520-4373-80c6-7d43fe3673cb";
 
-    /* Logs errors to console and the #error-log element */
+    // Basic logging
     function logError(message, err) {
       console.error(message, err);
       const errorLog = document.getElementById("error-log");
@@ -168,152 +178,155 @@
       }
     }
 
-    /* Initialize AWS credentials after successful Google Sign-In */
-    function initializeAwsS3(idToken) {
-      try {
-        AWS.config.update({
-          region: region,
-          credentials: new AWS.CognitoIdentityCredentials({
-            IdentityPoolId: identityPoolId,
-            Logins: {
-              "accounts.google.com": idToken
-            }
-          })
-        });
-
-        AWS.config.credentials.get(err => {
-          if (err) {
-            logError("AWS Credentials Error", err);
-            return;
-          }
-          console.log("AWS Credentials obtained successfully.");
-          s3Client = new AWS.S3({ apiVersion: "2006-03-01" });
-          loadFolderStructure();
-        });
-      } catch (err) {
-        logError("Error initializing AWS S3", err);
-      }
+    // Google Sign-In callback
+    function handleCredentialResponse(response) {
+      console.log("Google Sign-In Successful:", response);
+      initializeAwsS3(response.credential);
     }
 
-    /* List objects from S3 and build a folder structure in memory */
-    function loadFolderStructure() {
-      try {
-        s3Client.listObjectsV2({ Bucket: bucketName }, function (err, data) {
-          if (err) {
-            logError("Error listing S3 objects", err);
-            return;
+    // Initialize AWS after Google Sign-In
+    function initializeAwsS3(idToken) {
+      AWS.config.update({
+        region: region,
+        credentials: new AWS.CognitoIdentityCredentials({
+          IdentityPoolId: identityPoolId,
+          Logins: {
+            "accounts.google.com": idToken
           }
+        })
+      });
 
-          const folderStructure = {};
-          data.Contents.forEach(obj => {
-            const parts = obj.Key.split("/");
-            let currentLevel = folderStructure;
-            parts.forEach((part, index) => {
-              // If it's the last part, treat it as a file
-              if (index === parts.length - 1) {
-                currentLevel[part] = obj.Key;
-              } else {
-                // It's a folder
-                if (!currentLevel[part]) {
-                  currentLevel[part] = {};
-                }
-                currentLevel = currentLevel[part];
+      AWS.config.credentials.get(err => {
+        if (err) {
+          logError("AWS Credentials Error", err);
+          return;
+        }
+        console.log("AWS Credentials obtained successfully.");
+        s3Client = new AWS.S3({ apiVersion: "2006-03-01" });
+
+        // Show the refresh button once authenticated
+        document.getElementById("refresh-button").style.display = "block";
+
+        // Load initial tree
+        loadFolderStructure();
+      });
+    }
+
+    // Load S3 folder tree
+    function loadFolderStructure() {
+      if (!s3Client) {
+        logError("S3 Client not initialized", new Error("Auth needed."));
+        return;
+      }
+      s3Client.listObjectsV2({ Bucket: bucketName }, (err, data) => {
+        if (err) {
+          logError("Error listing S3 objects", err);
+          return;
+        }
+
+        const folderStructure = {};
+        data.Contents.forEach(obj => {
+          const parts = obj.Key.split("/");
+          let currentLevel = folderStructure;
+          parts.forEach((part, index) => {
+            if (index === parts.length - 1) {
+              // File
+              currentLevel[part] = obj.Key;
+            } else {
+              // Folder
+              if (!currentLevel[part]) {
+                currentLevel[part] = {};
               }
-            });
+              currentLevel = currentLevel[part];
+            }
+          });
+        });
+
+        const container = document.getElementById("folder-structure");
+        if (!container) {
+          logError("Error: folder-structure container is null", new Error("Container missing"));
+          return;
+        }
+        container.innerHTML = "";
+        renderFolderTree(folderStructure, container);
+      });
+    }
+
+    // Recursively render folder/file
+    function renderFolderTree(structure, container) {
+      for (let key in structure) {
+        if (typeof structure[key] === "object") {
+          // Folder
+          const li = document.createElement("li");
+          const folderNode = document.createElement("div");
+          folderNode.classList.add("folder-node");
+
+          const iconSpan = document.createElement("span");
+          iconSpan.textContent = "+"; // default collapsed
+          iconSpan.classList.add("folder-icon");
+
+          const labelSpan = document.createElement("span");
+          labelSpan.textContent = key;
+
+          const subUl = document.createElement("ul");
+          subUl.classList.add("folder-contents");
+
+          // Recursively build children
+          renderFolderTree(structure[key], subUl);
+
+          // Toggle expand/collapse
+          folderNode.addEventListener("click", () => {
+            if (subUl.classList.contains("expanded")) {
+              subUl.classList.remove("expanded");
+              iconSpan.textContent = "+";
+            } else {
+              subUl.classList.add("expanded");
+              iconSpan.textContent = "-";
+            }
           });
 
-          const container = document.getElementById("folder-structure");
-          if (!container) {
-            logError("Error: folder-structure container is null", new Error("Container missing"));
-            return;
-          }
-          container.innerHTML = "";
-          renderFolderTree(folderStructure, container);
-        });
-      } catch (err) {
-        logError("Unexpected error loading folder structure", err);
-      }
-    }
+          folderNode.appendChild(iconSpan);
+          folderNode.appendChild(labelSpan);
 
-    /* Renders the folder/file hierarchy with + / - toggles for folders */
-    function renderFolderTree(structure, container) {
-      try {
-        for (let key in structure) {
-          if (typeof structure[key] === "object") {
-            // FOLDER
-            const li = document.createElement("li");
+          li.appendChild(folderNode);
+          li.appendChild(subUl);
+          container.appendChild(li);
 
-            const folderNode = document.createElement("div");
-            folderNode.classList.add("folder-node");
-
-            const iconSpan = document.createElement("span");
-            iconSpan.textContent = "+"; // default collapsed
-            iconSpan.classList.add("folder-icon");
-
-            const labelSpan = document.createElement("span");
-            labelSpan.textContent = key;
-
-            /* Subfolder container */
-            const subContainer = document.createElement("ul");
-            subContainer.classList.add("folder-contents");
-
-            /* Recursively build children */
-            renderFolderTree(structure[key], subContainer);
-
-            /* Toggle expand/collapse on click */
-            folderNode.addEventListener("click", () => {
-              if (subContainer.classList.contains("expanded")) {
-                subContainer.classList.remove("expanded");
-                iconSpan.textContent = "+";
-              } else {
-                subContainer.classList.add("expanded");
-                iconSpan.textContent = "-";
-              }
-            });
-
-            folderNode.appendChild(iconSpan);
-            folderNode.appendChild(labelSpan);
-            li.appendChild(folderNode);
-            li.appendChild(subContainer);
-            container.appendChild(li);
-          } else {
-            // FILE
-            const li = document.createElement("li");
-            li.classList.add("file-node");
-            li.textContent = key;
-            li.addEventListener("click", () => fetchAndPreviewImage(structure[key]));
-            container.appendChild(li);
-          }
+        } else {
+          // File
+          const li = document.createElement("li");
+          li.classList.add("file-node");
+          li.textContent = key;
+          li.addEventListener("click", () => fetchAndPreviewImage(structure[key]));
+          container.appendChild(li);
         }
-      } catch (err) {
-        logError("Error rendering folder tree", err);
       }
     }
 
-    /* Retrieve image data from S3 using getObject and display in <img> */
+    // getObject from S3 to preview in native resolution
     function fetchAndPreviewImage(fileKey) {
-      try {
-        const defaultContentType = "image/png";
-
-        s3Client.getObject({ Bucket: bucketName, Key: fileKey }, (err, data) => {
-          if (err) {
-            logError("Error retrieving image", err);
-            return;
-          }
-          // data.Body is an ArrayBuffer in the browser environment
-          const blob = new Blob([data.Body], { type: data.ContentType || defaultContentType });
-          const blobUrl = URL.createObjectURL(blob);
-
-          const preview = document.getElementById("image-preview");
-          preview.src = blobUrl;
-          preview.style.display = "block";
-        });
-      } catch (err) {
-        logError("Error displaying image preview", err);
+      if (!s3Client) {
+        logError("S3 Client not initialized", new Error("Not Authenticated?"));
+        return;
       }
+      const params = { Bucket: bucketName, Key: fileKey };
+
+      s3Client.getObject(params, (err, data) => {
+        if (err) {
+          logError("Error retrieving image", err);
+          return;
+        }
+        // data.Body is an ArrayBuffer
+        const blob = new Blob([data.Body], { type: data.ContentType || "image/png" });
+        const blobUrl = URL.createObjectURL(blob);
+
+        const preview = document.getElementById("image-preview");
+        preview.src = blobUrl;
+        preview.style.display = "block";
+      });
     }
 
-    /* Google Sign-In initialization */
+    // Setup
     window.onload = function () {
       google.accounts.id.initialize({
         client_id: "859878185380-o0g59tkq13jm1dhqbt4eb4a4bmgqgjsr.apps.googleusercontent.com",
@@ -323,13 +336,11 @@
         document.getElementById("google-signin-button"),
         { theme: "outline", size: "large" }
       );
-    };
 
-    /* Callback after Google Sign-In is successful */
-    function handleCredentialResponse(response) {
-      console.log("Google Sign-In Successful:", response);
-      initializeAwsS3(response.credential);
-    }
+      // Refresh button listener
+      const refreshBtn = document.getElementById("refresh-button");
+      refreshBtn.addEventListener("click", loadFolderStructure);
+    };
   </script>
 </body>
 </html>
