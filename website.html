@@ -1,204 +1,203 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Browser for OpenAI Operators</title>
-    <script src="https://apis.google.com/js/platform.js?onload=initGoogleAPI" async defer></script>
-    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.814.0.min.js"></script>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        margin: 0;
-        padding: 20px;
-      }
-      .container {
-        max-width: 800px;
-        margin: auto;
-      }
-      select, button {
-        margin-right: 10px;
-        margin-bottom: 10px;
-      }
-      img {
-        max-width: 100%;
-        margin-top: 10px;
-      }
-      #imagePreview {
-        display: none;
-        border: 2px solid #ddd;
-        padding: 10px;
-        margin-top: 20px;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <h1>Image Browser for OpenAI Operators</h1>
-      <p>Please log in to view and browse images captured by remote devices.</p>
-      <button id="google-login-btn">Sign in with Google</button>
+    <title>Image Browser for OpenAI Operator</title>
 
-      <h2>Image Selection</h2>
-      <select id="deviceSelect">
-        <option value="">Select Device</option>
-      </select>
-      <select id="yearSelect" disabled>
-        <option value="">Select Year</option>
-      </select>
-      <select id="monthSelect" disabled>
-        <option value="">Select Month</option>
-      </select>
-      <select id="daySelect" disabled>
-        <option value="">Select Day</option>
-      </select>
-      <select id="hourSelect" disabled>
-        <option value="">Select Hour</option>
-      </select>
-      <div id="imageLinks"></div>
-      <div id="imagePreview">
-        <h3>Image Preview</h3>
-        <img id="previewImg" src="" alt="Image Preview">
-      </div>
+    <!-- Google Sign-In -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2em;
+        }
+        #image-preview {
+            max-width: 100%;
+            max-height: 400px;
+            margin-top: 1em;
+        }
+        .dropdown {
+            margin: 10px 0;
+        }
+        button {
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Image Browser for OpenAI Operator</h1>
+    <p>Authenticate to access the image data and use the dropdowns to select specific images from S3.</p>
+
+    <div id="auth-section">
+        <button id="signin-button">Sign in with Google</button>
+        <p id="signin-status"></p>
+    </div>
+
+    <div id="image-browser" style="display:none;">
+        <div>
+            <label for="device-dropdown">Device ID:</label>
+            <select id="device-dropdown" class="dropdown"></select>
+        </div>
+
+        <div>
+            <label for="year-dropdown">Year:</label>
+            <select id="year-dropdown" class="dropdown"></select>
+        </div>
+
+        <div>
+            <label for="month-dropdown">Month:</label>
+            <select id="month-dropdown" class="dropdown"></select>
+        </div>
+
+        <div>
+            <label for="day-dropdown">Day:</label>
+            <select id="day-dropdown" class="dropdown"></select>
+        </div>
+
+        <div>
+            <label for="hour-dropdown">Hour:</label>
+            <select id="hour-dropdown" class="dropdown"></select>
+        </div>
+
+        <div>
+            <ul id="image-list"></ul>
+        </div>
+
+        <div>
+            <img id="image-preview" alt="Image Preview" />
+        </div>
     </div>
 
     <script>
-      const bucketName = "images-947384912039";
-      const region = "us-east-1";
-      const identityPoolId = "us-east-1:057eb5c9-a520-4373-80c6-7d43fe3673cb";
-      let s3;
+        let s3Client;
+        const bucketName = "images-947384912039";
+        const region = "us-east-1";
+        const identityPoolId = "us-east-1:057eb5c9-a520-4373-80c6-7d43fe3673cb";
 
-      // Initialize Google API on load
-      function initGoogleAPI() {
-        gapi.load('auth2', () => {
-          gapi.auth2.init({
-            client_id: "859878185380-o0g59tkq13jm1dhqbt4eb4a4bmgqgjsr.apps.googleusercontent.com"
-          });
-        });
-      }
-
-      // Google sign-in button handler
-      document.getElementById('google-login-btn').addEventListener('click', () => {
-        const auth2 = gapi.auth2.getAuthInstance();
-        auth2.signIn().then(user => {
-          const idToken = user.getAuthResponse().id_token;
-          authenticateWithAWS(idToken);
-        }).catch(err => {
-          console.error("Google Sign-In Error", err);
-          alert("Google Sign-In failed. Please try again.");
-        });
-      });
-
-      function authenticateWithAWS(idToken) {
-        AWS.config.region = region;
-        AWS.config.credentials = new AWS.CognitoIdentityCredentials({
-          IdentityPoolId: identityPoolId,
-          Logins: {
-            'accounts.google.com': idToken
-          }
-        });
-
-        AWS.config.credentials.get((err) => {
-          if (err) {
-            console.error("AWS Credentials Error", err);
-            alert("Error authenticating with AWS: " + err);
-          } else {
-            s3 = new AWS.S3({ apiVersion: '2006-03-01' });
-            listDevices();
-          }
-        });
-      }
-
-      function listDevices() {
-        const params = { Bucket: bucketName, Prefix: "" };
-        s3.listObjectsV2(params, (err, data) => {
-          if (err) {
-            console.error("Error listing objects", err);
-            return;
-          }
-          const uniqueDevices = new Set();
-          data.Contents.forEach(item => {
-            const parts = item.Key.split("/");
-            if (parts.length > 0) uniqueDevices.add(parts[0]);
-          });
-          populateDropdown(document.getElementById('deviceSelect'), Array.from(uniqueDevices));
-        });
-      }
-
-      function populateDropdown(dropdown, options) {
-        dropdown.innerHTML = '<option value="">Select</option>';
-        options.forEach(option => {
-          const opt = document.createElement('option');
-          opt.value = option;
-          opt.textContent = option;
-          dropdown.appendChild(opt);
-        });
-        dropdown.disabled = false;
-      }
-
-      document.getElementById('deviceSelect').addEventListener('change', (e) => selectDatePart(e, 'year'));
-      document.getElementById('yearSelect').addEventListener('change', (e) => selectDatePart(e, 'month'));
-      document.getElementById('monthSelect').addEventListener('change', (e) => selectDatePart(e, 'day'));
-      document.getElementById('daySelect').addEventListener('change', (e) => selectDatePart(e, 'hour'));
-      document.getElementById('hourSelect').addEventListener('change', listImages);
-
-      function selectDatePart(event, nextPart) {
-        const value = event.target.value;
-        if (!value) return;
-        const selectedPart = event.target.id.replace('Select', '');
-        const prefix = getCurrentPrefix(selectedPart);
-        const params = { Bucket: bucketName, Prefix: prefix };
-
-        s3.listObjectsV2(params, (err, data) => {
-          if (err) {
-            console.error("Error fetching objects", err);
-            return;
-          }
-          const nextParts = new Set();
-          data.Contents.forEach(item => {
-            const parts = item.Key.split("/");
-            const nextIndex = getNextIndex(selectedPart);
-            if (parts.length > nextIndex) nextParts.add(parts[nextIndex]);
-          });
-          populateDropdown(document.getElementById(nextPart + 'Select'), Array.from(nextParts));
-        });
-      }
-
-      function getCurrentPrefix(part) {
-        return ['device', 'year', 'month', 'day', 'hour']
-          .map(p => document.getElementById(p + 'Select').value)
-          .filter(v => v).join('/') + '/';
-      }
-
-      function getNextIndex(part) {
-        return ['device', 'year', 'month', 'day', 'hour'].indexOf(part) + 1;
-      }
-
-      function listImages() {
-        const prefix = getCurrentPrefix('hour');
-        const params = { Bucket: bucketName, Prefix: prefix };
-
-        s3.listObjectsV2(params, (err, data) => {
-          if (err) {
-            console.error("Error listing images", err);
-            return;
-          }
-          const imageLinksContainer = document.getElementById('imageLinks');
-          imageLinksContainer.innerHTML = '';
-          data.Contents.forEach(item => {
-            const link = document.createElement('a');
-            link.href = `https://${bucketName}.s3.${region}.amazonaws.com/${item.Key}`;
-            link.textContent = item.Key.split('/').pop();
-            link.target = '_blank';
-            link.addEventListener('click', (e) => {
-              e.preventDefault();
-              document.getElementById('previewImg').src = link.href;
-              document.getElementById('imagePreview').style.display = 'block';
+        function initializeAwsS3(credentials) {
+            AWS.config.update({
+                region: region,
+                credentials: new AWS.CognitoIdentityCredentials({
+                    IdentityPoolId: identityPoolId,
+                    Logins: {
+                        'accounts.google.com': credentials.id_token
+                    }
+                })
             });
-            imageLinksContainer.appendChild(link);
-            imageLinksContainer.appendChild(document.createElement('br'));
-          });
-        });
-      }
+
+            s3Client = new AWS.S3({ apiVersion: '2006-03-01' });
+            loadImageDropdowns();
+        }
+
+        function loadImageDropdowns() {
+            s3Client.listObjectsV2({ Bucket: bucketName }, function (err, data) {
+                if (err) {
+                    console.error("Error listing S3 objects:", err);
+                    return;
+                }
+
+                const objects = data.Contents.map(obj => obj.Key);
+                populateDropdowns(objects);
+            });
+        }
+
+        function populateDropdowns(objects) {
+            const deviceSet = new Set();
+            const yearSet = new Set();
+            const monthSet = new Set();
+            const daySet = new Set();
+            const hourSet = new Set();
+
+            objects.forEach(key => {
+                const parts = key.split('/');
+                if (parts.length === 6) {
+                    const [device, year, month, day, hour] = parts;
+                    deviceSet.add(device);
+                    yearSet.add(year);
+                    monthSet.add(month);
+                    daySet.add(day);
+                    hourSet.add(hour);
+                }
+            });
+
+            populateDropdown('device-dropdown', deviceSet);
+            populateDropdown('year-dropdown', yearSet);
+            populateDropdown('month-dropdown', monthSet);
+            populateDropdown('day-dropdown', daySet);
+            populateDropdown('hour-dropdown', hourSet);
+
+            document.getElementById('device-dropdown').addEventListener('change', updateImageList);
+        }
+
+        function populateDropdown(id, values) {
+            const dropdown = document.getElementById(id);
+            dropdown.innerHTML = '<option value="">Select...</option>';
+            values.forEach(value => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = value;
+                dropdown.appendChild(option);
+            });
+        }
+
+        function updateImageList() {
+            const deviceId = document.getElementById('device-dropdown').value;
+            const year = document.getElementById('year-dropdown').value;
+            const month = document.getElementById('month-dropdown').value;
+            const day = document.getElementById('day-dropdown').value;
+            const hour = document.getElementById('hour-dropdown').value;
+
+            if (!deviceId || !year || !month || !day || !hour) return;
+
+            const prefix = `${deviceId}/${year}/${month}/${day}/${hour}/`;
+
+            s3Client.listObjectsV2({ Bucket: bucketName, Prefix: prefix }, function (err, data) {
+                if (err) {
+                    console.error("Error listing images:", err);
+                    return;
+                }
+                const imageList = document.getElementById('image-list');
+                imageList.innerHTML = '';
+                data.Contents.forEach(obj => {
+                    const li = document.createElement('li');
+                    const link = document.createElement('a');
+                    link.href = `https://${bucketName}.s3.amazonaws.com/${obj.Key}`;
+                    link.textContent = obj.Key;
+                    link.target = '_blank';
+                    link.addEventListener('click', event => {
+                        event.preventDefault();
+                        document.getElementById('image-preview').src = link.href;
+                    });
+                    li.appendChild(link);
+                    imageList.appendChild(li);
+                });
+            });
+        }
+
+        // Google Sign-In Initialization
+        window.onload = function () {
+            google.accounts.id.initialize({
+                client_id: "859878185380-o0g59tkq13jm1dhqbt4eb4a4bmgqgjsr.apps.googleusercontent.com",
+                callback: handleCredentialResponse
+            });
+            google.accounts.id.renderButton(
+                document.getElementById("signin-button"),
+                { theme: "outline", size: "large" }
+            );
+        };
+
+        function handleCredentialResponse(response) {
+            document.getElementById('signin-status').textContent = "Signed in successfully.";
+            document.getElementById('auth-section').style.display = 'none';
+            document.getElementById('image-browser').style.display = 'block';
+            initializeAwsS3(response.credential);
+        }
     </script>
-  </body>
+</body>
 </html>
