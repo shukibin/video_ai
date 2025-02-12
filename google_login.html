@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Video Analysis AI</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="styles.css">
+    <meta name="theme-color" content="#ffffff">
+</head>
+<body>
+    <div id="setupDialog" class="dialog">
+        <div class="dialog-content">
+            <h3>Setup Required</h3>
+            <p>Please enter your OpenAI API key to continue:</p>
+            <input type="password" id="apiKeyInput" placeholder="sk-..." class="api-key-input">
+            <div class="button-group">
+                <button id="saveApiKey">Save & Start</button>
+            </div>
+            <p class="small-text">This key will be stored in your browser's local storage.</p>
+        </div>
+    </div>
+
+    <div id="videoContainer">
+        <video id="videoElement" autoplay playsinline></video>
+        <select id="cameraSelect" class="camera-select">
+            <option value="">Loading cameras...</option>
+        </select>
+    </div>
+    
+    <div id="chatContainer">
+        <div id="chatMessages"></div>
+        <div id="inputContainer">
+            <textarea id="userInput" maxlength="1000" placeholder="Ask me about what you see..."></textarea>
+            <button id="sendButton">Send</button>
+        </div>
+        <button id="clearChat">Clear Chat</button>
+    </div>
+
+    <div id="loadingSpinner" class="hidden">
+        <div class="spinner"></div>
+    </div>
+
+    <div id="errorDialog" class="dialog hidden">
+        <div class="dialog-content">
+            <h3>Error</h3>
+            <p id="errorMessage"></p>
+            <div class="error-details hidden" id="errorDetails">
+                <pre id="errorTrace"></pre>
+            </div>
+            <button id="errorClose">Close</button>
+            <button id="errorRetry" class="hidden">Retry</button>
+        </div>
+    </div>
+
+    <div id="confirmDialog" class="dialog hidden">
+        <div class="dialog-content">
+            <h3>Confirm</h3>
+            <p>Are you sure you want to clear the chat history?</p>
+            <button id="confirmYes">Yes</button>
+            <button id="confirmNo">No</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
