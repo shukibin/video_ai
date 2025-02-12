@@ -3,75 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Message Relay</title>
+    <title>Static AI Relay</title>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
-        textarea { width: 80%; height: 100px; margin-bottom: 10px; }
-        button { padding: 10px; cursor: pointer; }
         #response { margin-top: 20px; font-weight: bold; white-space: pre-wrap; }
     </style>
 </head>
 <body>
 
-    <h1>Message Relay API</h1>
-    <textarea id="userInput" placeholder="Enter your message..."></textarea><br>
-    <button onclick="sendMessage()">Send</button>
-    <div id="response"></div>
+    <h1>Static AI Relay Endpoint</h1>
+    <p>This page acts as an API and does not have a UI.</p>
 
     <script>
-        async function sendMessage() {
-            const userInput = document.getElementById("userInput").value;
-            const responseDiv = document.getElementById("response");
-            responseDiv.innerText = "Processing...";
-            
-            const response = await fetch('/analyze', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: userInput })
+        async function sendMessage(message) {
+            const apiUrl = "https://your-site.netlify.app/.netlify/functions/relay"; // Or your Cloudflare Workers URL
+
+            const response = await fetch(apiUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message })
             });
 
             const data = await response.json();
-            responseDiv.innerText = data.response || "No response received.";
+            console.log("AI Response:", data.response);
         }
-    </script>
 
-    <!-- Node.js Backend (Express + OpenAI API) -->
-    <script type="module">
-        import express from 'express';
-        import cors from 'cors';
-        import { createServer } from 'http';
-        import { readFile } from 'fs/promises';
-        import { OpenAI } from 'openai';
-
-        const app = express();
-        app.use(cors());
-        app.use(express.json());
-
-        const openai = new OpenAI({ apiKey: "YOUR_OPENAI_API_KEY" });
-
-        // Serve this HTML file
-        app.get('/', async (req, res) => {
-            const file = await readFile(new URL(import.meta.url.replace('file://', '')));
-            res.setHeader("Content-Type", "text/html");
-            res.send(file.toString());
-        });
-
-        // API Endpoint to analyze user input
-        app.post('/analyze', async (req, res) => {
-            try {
-                const userMessage = req.body.message;
-                const aiResponse = await openai.chat.completions.create({
-                    model: "gpt-4",
-                    messages: [{ role: "user", content: userMessage }],
-                });
-                res.json({ response: aiResponse.choices[0].message.content });
-            } catch (error) {
-                res.status(500).json({ error: "Error processing request" });
-            }
-        });
-
-        const server = createServer(app);
-        server.listen(3000, () => console.log("Server running on http://localhost:3000"));
+        sendMessage("Hello, AI!");
     </script>
 
 </body>
